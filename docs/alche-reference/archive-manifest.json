@@ -1,0 +1,140 @@
+{
+  "auditDate": "2026-10-04",
+  "timezone": "Asia/Calcutta",
+  "site": "https://alche.studio/",
+  "scope": "Read-only homepage and representative About transition; desktop 870x668 and mobile 390x844; source snippets, no complete GPU capture.",
+  "sources": [
+    {
+      "file": "homepage.html",
+      "url": "https://alche.studio/",
+      "kind": "Downloaded public text resource",
+      "bytes": 41562,
+      "sha256": "63fc9f3a0327ca6528e62f564caeebcdd892a3dd71fcd7f2c03ae2f86dc9e1e2"
+    },
+    {
+      "file": "page.SNkKDTDH.js",
+      "url": "https://alche.studio/_astro/page.SNkKDTDH.js",
+      "kind": "Downloaded public text resource",
+      "bytes": 3184,
+      "sha256": "2e69ea7f6d1dd8338f2782cc97d17720ae8826fa4e945cdb2249c6998c81bc2e"
+    },
+    {
+      "file": "index.astro_astro_type_script_index_0_lang.Cn_goiN_.js",
+      "url": "https://alche.studio/_astro/index.astro_astro_type_script_index_0_lang.Cn_goiN_.js",
+      "kind": "Downloaded public text resource",
+      "bytes": 1831372,
+      "sha256": "b2bd0d964416bd3db61b1392d2b645314e50ea79cadb09f69755d5f4c3791853"
+    },
+    {
+      "file": "index.DnJ5xLaK.css",
+      "url": "https://alche.studio/_astro/index.DnJ5xLaK.css",
+      "kind": "Downloaded public text resource",
+      "bytes": 5144,
+      "sha256": "0b2c7be7bf61e07728df7709ce096cb44a7610d7f682a8e04bf2e857df8190dd"
+    },
+    {
+      "file": "about.DKIoZJhT.css",
+      "url": "https://alche.studio/_astro/about.DKIoZJhT.css",
+      "kind": "Downloaded public text resource",
+      "bytes": 334962,
+      "sha256": "ffd28d4df68dd2a8c0203e1d0e370d7a0fe0d698ef0860def19634600e576ebd"
+    },
+    {
+      "file": "index.CQ0ApTUm.css",
+      "url": "https://alche.studio/_astro/index.CQ0ApTUm.css",
+      "kind": "Downloaded public text resource",
+      "bytes": 19537,
+      "sha256": "24584ce5b4633e05c6a29f6664cc81e0bb6571bf49c91d9631f54eaa996c7cd6"
+    },
+    {
+      "file": "about.Bk-C3ZjO.css",
+      "url": "https://alche.studio/_astro/about.Bk-C3ZjO.css",
+      "kind": "Downloaded public text resource",
+      "bytes": 276975,
+      "sha256": "99db818d13e0a245db0521fc73cb35949ca6fb89ec17fa29e0a24e7480323fdb"
+    },
+    {
+      "file": "loading-bg.json",
+      "url": "https://alche.studio/common/loading/bg/data.json",
+      "kind": "Downloaded public text resource",
+      "bytes": 42484,
+      "sha256": "2df13d7b498900ee5c7bfe14677ad950b6f21442729fef2c315a29f13c6fc3ff"
+    },
+    {
+      "file": "loading-logo.json",
+      "url": "https://alche.studio/common/loading/logo/data.json",
+      "kind": "Downloaded public text resource",
+      "bytes": 3888,
+      "sha256": "24fce47e0c3c8dc57102a8542f68c8186a92d16e153ae87145d36e0ef4535623"
+    },
+    {
+      "file": "scene-manifest.json",
+      "url": "https://alche.studio/common/scene.glb",
+      "kind": "Extracted JSON manifest only, not entire GLB",
+      "bytes": 17102,
+      "sha256": "739b37880f72733e3a3f4f176d09701320bade35d31e350ba97585122737d9af"
+    }
+  ],
+  "screenshots": [
+    {
+      "file": "01-loading.jpg",
+      "bytes": 5321,
+      "sha256": "88439511449f848c598dc25ceeb9301be2bd90446797bfa6826a706e5a3d3ff4"
+    },
+    {
+      "file": "02-hero.jpg",
+      "bytes": 81705,
+      "sha256": "05c4182eae70ef169b8e64da797d93650a41001f771550f1755f1af98111643b"
+    },
+    {
+      "file": "03-contact-hover.jpg",
+      "bytes": 85142,
+      "sha256": "d62091bc44bf3fe194fe55f4cd971fc110dc9f1fa417f45a580d7db2f6f3f3d0"
+    },
+    {
+      "file": "04-works.jpg",
+      "bytes": 87293,
+      "sha256": "aa6082197c26bee062b1fb5b6c871ee33a0045b236786cded6b6e7fbe6c8d968"
+    },
+    {
+      "file": "05-work-windows.jpg",
+      "bytes": 101654,
+      "sha256": "e786ac41d77a84bb17936916be42c05dbf2caaab0bab027d9b3c501dde7d1a37"
+    },
+    {
+      "file": "06-mission-vision.jpg",
+      "bytes": 45205,
+      "sha256": "e74d531a1b30ba4b3028f476dafa732e648cc456e36e210fdd1cd114e3bd7379"
+    },
+    {
+      "file": "07-services.jpg",
+      "bytes": 71516,
+      "sha256": "81342d7cbb6e56333fe3fed661628bbf5efb5dfa6e35969104c564b634a964e0"
+    },
+    {
+      "file": "08-stellla-footer.jpg",
+      "bytes": 16849,
+      "sha256": "6659a50ac4f71f429cad6f23c6a4d03a2a5b62ecfbdfb9e06aa9bf08d0b3bff3"
+    },
+    {
+      "file": "09-footer.jpg",
+      "bytes": 25785,
+      "sha256": "50b5a875ca8722f15f50df75206eba0ab098e06e0d0e63d7a61cab2d395ddd98"
+    },
+    {
+      "file": "10-mobile-hero.jpg",
+      "bytes": 44128,
+      "sha256": "b796024ba1cb98d7abebe95ab5849c783c8bf9e9c05170ca50c81a25c9e2f5f3"
+    },
+    {
+      "file": "11-mobile-menu.jpg",
+      "bytes": 13902,
+      "sha256": "4b24f6cc722f61502681f5b9df64334bc8d132fc6c591535b852e1e21e640b4c"
+    },
+    {
+      "file": "12-about.jpg",
+      "bytes": 54555,
+      "sha256": "15041b6cb92c436bcfaceb83ef82bdaeaffc4ba58771044035997b07682d1a48"
+    }
+  ]
+}

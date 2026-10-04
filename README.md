@@ -24,3 +24,7 @@ Edit `src/content.ts` to set the profile and project data. Set `sample: false` o
 The hero has a motion toggle and respects the system's reduced-motion preference. A static R appears when motion is off or WebGL is unavailable. Case-study URLs work in Vite; a production static host needs an SPA fallback to `index.html`, or pre-rendered project routes, before release.
 
 Instagram links can serve as outbound links or embeds when the post permits embedding. Original MP4s and poster images provide the most predictable presentation. Keep large media files outside Git; store them on a media host or supply a hosting plan before publishing.
+
+## Reference audit
+
+[Alche technical audit](docs/ALCHE-AUDIT.md) documents the deployed reference's shaders, pointer response, loader, scroll snapping, typography and hover interactions. Reference screenshots and asset hashes are stored as documentation in `docs/alche-reference/`; they are not application assets. The audit also identifies the rendering and scroll changes needed beyond the current foundation.

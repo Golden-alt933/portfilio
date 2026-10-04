@@ -32,3 +32,7 @@
 - Production origin, sitemap and pre-rendering for reliable crawler/social metadata before release.
 
 The preview is local. No website has been published. The private GitHub repository stores the source and milestone commits. A Three.js chunk-size notice remains in production output; the scene is loaded dynamically, and further optimization should be guided by measured device performance.
+
+## Reference fidelity audit
+
+[The deployed Alche audit](ALCHE-AUDIT.md) and twelve reference screenshots are archived. Source evidence confirms a custom scene-buffer refraction shader, GPU fluid velocity distortion, curved 3D project panels, and Lenis plus ScrollTrigger snapping. The current R implementation uses a simpler material and scroll treatment. Those deeper mechanisms remain implementation work; this documentation milestone does not claim visual or behavioral parity.
