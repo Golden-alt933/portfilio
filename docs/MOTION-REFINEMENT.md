@@ -24,4 +24,14 @@ The portfolio uses one global Lenis provider, GSAP ScrollTrigger scrubbed sectio
 
 ## Evidence limits
 
+### Ink and pointer refinement
+
+The follow-up comparison keeps the surround blue-black, the interface white, and the changing pigment localized to cyan/violet plumes. Larger subdivided tiles cycle through slanted stripes and color fields, with asynchronous UV jumps, scan-band offsets, and blackouts. These shaders remain an original approximation of the reference's recursive panel scene.
+
+The archived source's letter uses pointer velocity with a center-weighted quaternion impulse; its camera separately follows absolute pointer position. The portfolio now deliberately adds a sustained, bounded position-based letter tilt to satisfy the requested stronger response. Movement adds a small spring impulse, while blur and pointer exit return the target to neutral. Chapter and reveal progress attenuate the tilt.
+
+An additional low-resolution, ping-pong pigment field is an original extension of the velocity solve, not a claim about Alche's fluid implementation. An irregular intro plume expands through seeded tongues and satellite droplets; desktop mouse movement deposits color that advects and fades. Mobile retains the intro pigment pass and skips the velocity-pressure solver. Three background texture taps approximate a restrained glow without a full-screen bloom chain. Both pigment targets and their material are resized and disposed with the scene.
+
+The shader reveal now lasts three seconds from the overlapping SVG exit. Depth unfolds first; CREATE starts at .72 reveal progress, metadata at .85, and supporting copy/actions stagger through completion. Reduced motion and renderer failure settle the UI immediately. A reveal skipped while hidden does not replay missed pigment bursts on return.
+
 The live source is minified and can change after deployment. The symbol inventory and detailed constants are archived in [ALCHE-AUDIT.md](ALCHE-AUDIT.md). An original procedural approximation can reproduce the design mechanism without guaranteeing identical frames: randomized mosaics, the different letter geometry, and the eventual portfolio media all change the composition. Browser validation is recorded separately in [STATUS.md](STATUS.md).

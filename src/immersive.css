@@ -85,7 +85,10 @@
   line-height: 0.78;
   font-weight: 650;
   letter-spacing: -0.095em;
-  opacity: 0.14;
+  opacity: calc(0.14 * var(--portfolio-hero-create-reveal, 1));
+  transform: translateY(
+    calc((1 - var(--portfolio-hero-create-reveal, 1)) * 10px)
+  );
 }
 .immersive-wordmark > b {
   position: absolute;
@@ -109,9 +112,11 @@
   background-clip: text;
   -webkit-background-clip: text;
   filter: drop-shadow(0 16px 30px #0006);
+  opacity: var(--portfolio-hero-r-reveal, 1);
 }
 .immersive-hero .immersive-index {
   top: 104px;
+  opacity: var(--portfolio-hero-meta-reveal, 1);
 }
 .immersive-home.scene-ready .immersive-wordmark {
   opacity: 0;
@@ -139,6 +144,25 @@ body[data-scene-chapter="contact"] .immersive-wordmark {
   right: 5vw;
   bottom: 11.5%;
   text-align: right;
+}
+.immersive-hero-note > span {
+  display: block;
+  opacity: var(--portfolio-hero-kicker-reveal, 1);
+  transform: translateY(
+    calc((1 - var(--portfolio-hero-kicker-reveal, 1)) * 8px)
+  );
+}
+.immersive-hero-note > p {
+  opacity: var(--portfolio-hero-copy-reveal, 1);
+  transform: translateY(
+    calc((1 - var(--portfolio-hero-copy-reveal, 1)) * 10px)
+  );
+}
+.immersive-hero-note > .immersive-text-link {
+  opacity: var(--portfolio-hero-action-reveal, 1);
+  transform: translateY(
+    calc((1 - var(--portfolio-hero-action-reveal, 1)) * 10px)
+  );
 }
 .immersive-hero-note > span {
   color: #b7bab6;
@@ -173,6 +197,21 @@ body[data-scene-chapter="contact"] .immersive-wordmark {
   align-items: center;
   gap: 15px;
   color: #a4a6a4;
+  opacity: var(--portfolio-hero-scroll-reveal, 1);
+  transform: translateY(
+    calc((1 - var(--portfolio-hero-scroll-reveal, 1)) * 10px)
+  );
+}
+.immersive-hero-note:focus-within > *,
+.immersive-scroll-hint:focus-visible {
+  opacity: 1;
+  transform: none;
+}
+body[data-intro-stage="revealing"] .immersive-motion-toggle {
+  opacity: var(--portfolio-hero-meta-reveal, 0);
+}
+body[data-intro-stage="revealing"] .immersive-motion-toggle:focus-visible {
+  opacity: 1;
 }
 .immersive-scroll-hint svg {
   animation: ih-arrow 1.8s ease-in-out infinite;

@@ -14,7 +14,7 @@
 
 ## Browser verification
 
-Production build verified locally with the final application bundle `index-DGbmBQHr.js` and scene bundle `HeroScene-Zc2PnsyY.js`.
+The original motion pass used `index-DGbmBQHr.js` and `HeroScene-Zc2PnsyY.js`. The subsequent ink/pointer refinement builds as `index-DAwQraF8.js` and `HeroScene-BHO-FFwH.js`.
 
 - TypeScript checking and Vite production build pass; new shaders compile in the browser with renderer status ready and no captured console errors.
 - Construction SVG draws a complete R contour. Loader releases its scroll lock and reveals one active canvas.
@@ -28,6 +28,17 @@ Production build verified locally with the final application bundle `index-DGbmB
 - An editing case study loads after direct URL reload without initializing the GPU scene. Its title and sample content are correct.
 
 Screenshots were saved in the workspace's `work/portfolio-validation` directory. These checks verify behavior and composition, not a measured frame-rate budget or pixel-identical reproduction.
+
+### Ink and pointer follow-up
+
+- Sustained mouse-position tilt now supplements the movement impulse. Desktop browser observations at opposite horizontal positions showed yaw about -.483 and +.476 radians, with visible changes to the R's side faces and reflections.
+- A separate low-resolution pigment field adds a seeded, irregular intro splatter and movement-driven desktop color trails. Blue-black tiled patterns, asynchronous stripe/UV glitches, localized cyan/violet glow, and cooler reflections refine the palette. The existing pale scene remains a separate continuous blend.
+- The three-second depth/reveal sequence precedes the surrounding text. A captured frame at reveal .355 showed the R and ink while hero paragraph opacity and header opacity were both 0; after completion they reached 1. The motion control now follows the same delayed metadata gate.
+- The final production bundle renders with one ready canvas and no captured shader errors. The 390px viewport has no horizontal overflow; the menu opens, Escape closes it, and motion-off removes the canvas while exposing all text immediately. Re-enabling motion returns one ready canvas without replaying the intro.
+- The final Motion study route opens from the work scene. Back to work restores y=720 / progress .000 with one canvas, reveal 1, and no loader.
+- Luna 6 handled pigment transport and reveal staging in separate files; Sol 6.1 reviewed bindings, bounded input, missed-intro handling, reduced motion, and resource cleanup. Root performed the live browser checks.
+
+The browser connection intermittently stalled during this pass and recovered; this is not a frame-rate measurement. Physical-device performance remains to be measured.
 
 ## Content and release work
 

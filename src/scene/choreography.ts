@@ -4,6 +4,8 @@ import type { SceneState } from "../SceneState";
 export interface PointerImpulse {
   x: number;
   y: number;
+  positionX: number;
+  positionY: number;
 }
 
 export interface SceneMotion {
@@ -98,22 +100,24 @@ export class SceneChoreography {
       this.automaticYaw = 0;
       this.angularVelocity = 0;
     } else {
-      const intensity = THREE.MathUtils.clamp(
-        1 -
-          Math.max(
-            this.workVisibility,
-            this.lightMix,
-            this.contactMix,
-            this.servicesMix,
-          ) +
-          this.workVisibility * 0.2,
-        0,
-        1,
-      );
-      this.rotationX += -pointerImpulse.y * 0.01 * intensity * 24;
-      this.pointerYaw += pointerImpulse.x * 0.01 * intensity * 24;
-      this.rotationX *= Math.max(0, 1 - dt);
-      this.pointerYaw *= Math.exp(-dt * 2);
+      const intensity =
+        THREE.MathUtils.smoothstep(state.reveal, 0.15, 0.75) *
+        THREE.MathUtils.clamp(
+          1 -
+            Math.max(
+              this.workVisibility,
+              this.lightMix,
+              this.contactMix,
+              this.servicesMix,
+            ) +
+            this.workVisibility * 0.2,
+          0,
+          1,
+        );
+      // Position supplies a held tilt; movement adds a restrained spring impulse.
+      // Bounded damping prevents long mouse sweeps from accumulating rotations.
+      this.rotationX += -pointerImpulse.y * 0.34 * intensity;
+      this.pointerYaw += pointerImpulse.x * 0.46 * intensity;
       const returnPitch =
         -0.12 *
           (1 -
@@ -126,10 +130,17 @@ export class SceneChoreography {
         0.13 * this.workVisibility +
         0.06 * this.servicesMix;
       this.rotationX = step(
-        returnPitch,
+        returnPitch - pointerImpulse.positionY * 0.28 * intensity,
         this.rotationX,
-        0.4 + (1 - this.workVisibility) * 1.6,
+        4.5,
       );
+      this.pointerYaw = step(
+        pointerImpulse.positionX * 0.58 * intensity,
+        this.pointerYaw,
+        4.5,
+      );
+      this.rotationX = THREE.MathUtils.clamp(this.rotationX, -0.5, 0.5);
+      this.pointerYaw = THREE.MathUtils.clamp(this.pointerYaw, -0.65, 0.65);
       if (this.workVisibility + this.servicesMix + transitionSpin > 0.005) {
         this.automaticYaw =
           (this.automaticYaw + this.angularVelocity * dt) % (Math.PI * 2);

@@ -189,6 +189,8 @@ export default function HeroScene({
       uniforms: {
         uTime: { value: 0 },
         uFluid: { value: fluid.velocity.texture },
+        uInk: { value: fluid.dye.texture },
+        uAspect: { value: window.innerWidth / window.innerHeight },
         uLight: { value: 0 },
         uContact: { value: 0 },
         uReveal: { value: 0 },
@@ -271,6 +273,7 @@ export default function HeroScene({
         uEnv: { value: envMap },
         uResolution: { value: new THREE.Vector2(1, 1) },
         uFluid: { value: fluid.velocity.texture },
+        uInk: { value: fluid.dye.texture },
         uTime: { value: 0 },
         uLight: { value: 0 },
         uReveal: { value: 0 },
@@ -479,8 +482,16 @@ export default function HeroScene({
       )
         return;
       const rect = holder!.getBoundingClientRect();
-      const x = (event.clientX - rect.left) / rect.width;
-      const y = (event.clientY - rect.top) / rect.height;
+      const x = THREE.MathUtils.clamp(
+        (event.clientX - rect.left) / rect.width,
+        0,
+        1,
+      );
+      const y = THREE.MathUtils.clamp(
+        (event.clientY - rect.top) / rect.height,
+        0,
+        1,
+      );
       pointer.dx = x - pointer.px;
       pointer.dy = pointer.py - y;
       pointer.px = pointer.x = x;
@@ -549,10 +560,17 @@ export default function HeroScene({
       pointer.down = -1;
       pointer.downTarget = null;
     };
+    const pointerLeave = () => {
+      pointer.ndcX = pointer.ndcY = 0;
+      pointer.dx = pointer.dy = 0;
+      pointer.px = pointer.x = pointer.py = pointer.y = 0.5;
+    };
     window.addEventListener("pointermove", pointerMove, { passive: true });
     window.addEventListener("pointerdown", pointerDown, { passive: true });
     window.addEventListener("pointerup", pointerUp, { passive: true });
     window.addEventListener("pointercancel", pointerCancel, { passive: true });
+    document.addEventListener("pointerleave", pointerLeave);
+    window.addEventListener("blur", pointerLeave);
 
     let width = 1,
       height = 1,
@@ -635,6 +653,8 @@ export default function HeroScene({
       const motion = choreography.update(s, dt, reducedRef.current, {
         x: pointer.dx * pointerWeight,
         y: pointer.dy * pointerWeight,
+        positionX: pointer.ndcX,
+        positionY: pointer.ndcY,
       });
       pointer.dx = 0;
       pointer.dy = 0;
@@ -663,9 +683,12 @@ export default function HeroScene({
         (1 - contactMix) *
         (1 - lightMix) *
         (1 - servicesMix) *
-        reveal;
-      fluid.update();
+        THREE.MathUtils.smoothstep(reveal, 0.72, 0.95);
+      fluid.setReveal(reveal);
+      fluid.update(dt);
       bgMaterial.uniforms.uFluid.value = fluid.velocity.texture;
+      bgMaterial.uniforms.uInk.value = fluid.dye.texture;
+      bgMaterial.uniforms.uAspect.value = width / height;
       holder!.dataset.chapter = chapter;
       // Render background first: the refractive letter samples this target, which never contains the letter or cards.
       const oldTarget = renderer.getRenderTarget();
@@ -716,8 +739,8 @@ export default function HeroScene({
       const drift = 1 - transitionMix;
       const desiredX = reducedRef.current
         ? 0
-        : pointer.ndcX * 0.5 * drift + cameraDive * 0.8;
-      const desiredY = reducedRef.current ? 0 : pointer.ndcY * 0.5 * drift;
+        : pointer.ndcX * 0.82 * drift + cameraDive * 0.8;
+      const desiredY = reducedRef.current ? 0 : pointer.ndcY * 0.64 * drift;
       const cameraTargetZ =
         (mobile ? 11.8 : 10.5) - cameraDive * (mobile ? 3.4 : 4.6);
       camera.position.z +=
@@ -730,6 +753,9 @@ export default function HeroScene({
       letter.scale.setScalar((mobile ? 1.2 : 1.4) * (letterScale / 1.12));
       letter.rotation.x = motion.rotationX;
       letter.rotation.y = motion.rotationY;
+      holder!.dataset.rotationX = motion.rotationX.toFixed(3);
+      holder!.dataset.rotationY = motion.rotationY.toFixed(3);
+      holder!.dataset.reveal = reveal.toFixed(3);
       const targetLetterY =
         (mobile ? 0.55 : 0) - workMix * 0.12 - transitionMix * 0.24;
       letter.position.y +=
@@ -746,13 +772,14 @@ export default function HeroScene({
         height * renderer.getPixelRatio(),
       );
       rMaterial.uniforms.uFluid.value = fluid.velocity.texture;
+      rMaterial.uniforms.uInk.value = fluid.dye.texture;
       rMaterial.uniforms.uTime.value = now * 0.001;
       rMaterial.uniforms.uLight.value = light;
       rMaterial.uniforms.uReveal.value = reveal;
       rMaterial.uniforms.uServices.value = servicesMix;
       rMaterial.uniforms.uContact.value = contactMix;
       rMaterial.uniforms.uDepthScale.value =
-        0.035 + 0.965 * THREE.MathUtils.smoothstep(reveal, 0.02, 0.8);
+        0.035 + 0.965 * THREE.MathUtils.smoothstep(reveal, 0.08, 0.85);
       rMaterial.uniforms.uRipple.value =
         Math.sin(reveal * Math.PI) * (0.3 + (1 - reveal) * 0.7);
       outlineMaterial.opacity = light * 0.9;
@@ -790,6 +817,8 @@ export default function HeroScene({
       window.removeEventListener("pointerdown", pointerDown);
       window.removeEventListener("pointerup", pointerUp);
       window.removeEventListener("pointercancel", pointerCancel);
+      document.removeEventListener("pointerleave", pointerLeave);
+      window.removeEventListener("blur", pointerLeave);
       document.removeEventListener("visibilitychange", visibility);
       renderer.domElement.removeEventListener("webglcontextlost", lose);
       renderer.domElement.removeEventListener("webglcontextrestored", restore);

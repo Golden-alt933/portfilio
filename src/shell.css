@@ -21,6 +21,15 @@
 .shell-header button {
   pointer-events: auto;
 }
+/* The letter and pigment unfold before navigation joins the composition. */
+body[data-intro-stage="revealing"] .site-header.shell-header,
+body[data-intro-stage="revealing"] .chapter-rail:not(.is-hidden) {
+  opacity: var(--portfolio-hero-meta-reveal, 0);
+}
+body[data-intro-stage="revealing"] .shell-header:focus-within,
+body[data-intro-stage="revealing"] .chapter-rail:focus-within {
+  opacity: 1;
+}
 .shell-brand {
   display: inline-flex;
   gap: 5px;

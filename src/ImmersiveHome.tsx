@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Link, useNavigationType } from "react-router-dom";
 import {
   ArrowDown,
@@ -31,6 +38,7 @@ const chapters: SceneChapter[] = [
   "contact",
 ];
 const workProjects = projects;
+const SCENE_REVEAL_DURATION_MS = 3000;
 
 export default function ImmersiveHome() {
   const {
@@ -59,8 +67,9 @@ export default function ImmersiveHome() {
   const contactRef = useRef<HTMLElement>(null);
   const skipIntro = sceneReady || reducedMotion || sceneFailed;
   const revealStartedAt = useRef<number | null>(
-    skipIntro ? performance.now() - 1500 : null,
+    skipIntro ? performance.now() - SCENE_REVEAL_DURATION_MS : null,
   );
+  const highestSceneReveal = useRef(skipIntro ? 1 : 0);
   const [loaderDone, setLoaderDone] = useState(skipIntro);
   const [activeWork, setActiveWork] = useState(() =>
     Math.round(
@@ -83,6 +92,53 @@ export default function ImmersiveHome() {
   }, []);
   const onRevealStart = useCallback(() => {
     revealStartedAt.current = performance.now();
+  }, []);
+
+  useLayoutEffect(() => {
+    const root = document.documentElement;
+    const initialProgress = skipIntro ? 1 : 0;
+    root.style.setProperty(
+      "--portfolio-hero-r-reveal",
+      String(initialProgress),
+    );
+    root.style.setProperty(
+      "--portfolio-hero-create-reveal",
+      String(initialProgress),
+    );
+    root.style.setProperty(
+      "--portfolio-hero-meta-reveal",
+      String(initialProgress),
+    );
+    root.style.setProperty(
+      "--portfolio-hero-kicker-reveal",
+      String(initialProgress),
+    );
+    root.style.setProperty(
+      "--portfolio-hero-copy-reveal",
+      String(initialProgress),
+    );
+    root.style.setProperty(
+      "--portfolio-hero-action-reveal",
+      String(initialProgress),
+    );
+    root.style.setProperty(
+      "--portfolio-hero-scroll-reveal",
+      String(initialProgress),
+    );
+    document.body.dataset.introProgress = initialProgress.toFixed(3);
+    document.body.dataset.introStage =
+      initialProgress >= 1 ? "settled" : "revealing";
+    return () => {
+      root.style.removeProperty("--portfolio-hero-r-reveal");
+      root.style.removeProperty("--portfolio-hero-create-reveal");
+      root.style.removeProperty("--portfolio-hero-meta-reveal");
+      root.style.removeProperty("--portfolio-hero-kicker-reveal");
+      root.style.removeProperty("--portfolio-hero-copy-reveal");
+      root.style.removeProperty("--portfolio-hero-action-reveal");
+      root.style.removeProperty("--portfolio-hero-scroll-reveal");
+      delete document.body.dataset.introProgress;
+      delete document.body.dataset.introStage;
+    };
   }, []);
 
   useEffect(() => {
@@ -188,10 +244,18 @@ export default function ImmersiveHome() {
       const portalProgress = smooth(
         (scroll - (metrics[4].start - vh * 0.8)) / (vh * 0.8),
       );
-      const reveal =
+      const timedReveal =
         revealStartedAt.current === null
           ? 0
-          : clamp((time - revealStartedAt.current) / 1500);
+          : clamp((time - revealStartedAt.current) / SCENE_REVEAL_DURATION_MS);
+      const reveal = Math.max(
+        highestSceneReveal.current,
+        reducedMotion || sceneFailed ? 1 : timedReveal,
+      );
+      highestSceneReveal.current = reveal;
+      const introReveal = reveal;
+      const introStage = (start: number, end: number) =>
+        smooth((introReveal - start) / (end - start));
       sceneState.current = {
         chapter,
         chapterProgress: progress,
@@ -210,6 +274,38 @@ export default function ImmersiveHome() {
       story.dataset.contactMix = contactMix.toFixed(3);
       story.dataset.portalProgress = portalProgress.toFixed(3);
       story.dataset.workProgress = workProgress.toFixed(3);
+      document.body.dataset.introProgress = introReveal.toFixed(3);
+      document.body.dataset.introStage =
+        introReveal >= 1 ? "settled" : "revealing";
+      const rootStyle = document.documentElement.style;
+      rootStyle.setProperty(
+        "--portfolio-hero-r-reveal",
+        String(introStage(0.08, 0.45)),
+      );
+      rootStyle.setProperty(
+        "--portfolio-hero-create-reveal",
+        String(introStage(0.72, 0.95)),
+      );
+      rootStyle.setProperty(
+        "--portfolio-hero-meta-reveal",
+        String(introStage(0.85, 1)),
+      );
+      rootStyle.setProperty(
+        "--portfolio-hero-kicker-reveal",
+        String(introStage(0.85, 0.94)),
+      );
+      rootStyle.setProperty(
+        "--portfolio-hero-copy-reveal",
+        String(introStage(0.88, 0.98)),
+      );
+      rootStyle.setProperty(
+        "--portfolio-hero-action-reveal",
+        String(introStage(0.92, 1)),
+      );
+      rootStyle.setProperty(
+        "--portfolio-hero-scroll-reveal",
+        String(introStage(0.95, 1)),
+      );
       sections.forEach((section, i) =>
         section!.style.setProperty(
           "--chapter-progress",
@@ -361,7 +457,7 @@ export default function ImmersiveHome() {
       document.body.style.removeProperty("--scene-light-mix");
       document.body.style.backgroundColor = previousBodyBackground;
     };
-  }, [reducedMotion, rememberWork, sceneState]);
+  }, [reducedMotion, sceneFailed, rememberWork, sceneState]);
 
   const nudgeWork = (step: number) => {
     const target = Math.max(
