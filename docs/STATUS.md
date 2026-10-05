@@ -1,50 +1,40 @@
 # Implementation status — 5 October 2026
 
-## Built
+## Current sequence
 
-- Original beveled R with scene-buffer chromatic refraction, studio reflections, pointer response, and scroll-linked rotation.
-- Dark procedural background with slowly cycling contour, blue/lilac, and violet/cyan/orange tile patterns, staggered UV shifts and blackouts, curved grid, and desktop GPU velocity distortion.
-- Construction loader using the same R contour as the mesh; readiness gate, scroll lock, overlapping radial lens reveal, progressive depth, and bounded fallback.
-- One global Lenis provider with LERP .08, driven by GSAP's ticker. It owns anchor movement, menu locking, route positioning, and history restoration.
-- GSAP ScrollTrigger progress and scrubbed translate-y text staggers; one body palette timeline uses the same continuous light mix as the GPU scene.
-- Six curved project cards on a diagonal 3D track. The last card remains visible at its stop; cards rise and recede while the camera approaches the R and the pale scene wipes upward. Reverse scroll reverses these values.
-- Pale mission/vision scenes with a white outline R and readable dark navigation; service portal and dark contact transition.
-- Hover scrambling, rolling labels, mobile menu, static fallback, filters, and typed case-study pages.
-- MP4 playback and click-to-load Instagram support in the existing media components, ready for supplied content.
+- Full-viewport drafting loader: moving and trimmed horizontal, vertical, diagonal and circular paths, plus the original mesh-matched R contour. A readiness gate overlaps the three-second GPU reveal; surrounding text appears later. The overlay is portalled to the body so it covers the footer and header on reload.
+- Original geometric CREATE artwork shared by the hero texture and closing SVG. Alche's ALCHE artwork is a raster/SVG asset, not an identified text font. The portfolio retains IBM Plex Mono UI text, Google Sans Code metadata, and original artwork; Inter/Barlow substitute for licensed reference headings.
+- Persistent beveled R with pointer-position tilt, scroll rotation, scene-buffer refraction, chromatic edges, transported pigment and evolving dark blue/green procedural patterns. A full-frame radial lens pass carries the reveal and portal ripple over the whole GPU composition.
+- One global Lenis provider (LERP .08) driven by GSAP's ticker. ScrollTrigger feeds continuous scene channels and reversible translate-y text reveals. Body color follows the same continuous pale blend as the scene.
+- Six bowed, rounded project panels on a diagonal track. Hero text clears first; entry has a separate approach, each card has 1.6 viewport heights of travel, desktop wheel bursts are bounded to one stop, and exit holds a separate R-only pause before the pale grid.
+- Neutral #D7DBDC pale scene with a fine warped grid and cross marks. The R flattens into a white outline, then regains depth as its full-height rainbow side turns toward the camera. Vision copy blurs with portal travel.
+- A dim curved media panel and backdrop reuse the selected work texture. Direct MP4 textures are lazy, muted and looped; poster fallback remains. Videos pause on route departure, visibility changes and renderer failure, and resources dispose on unmount.
+- Sticky closing stage: the R moves into the R slot of CREATE as other letter outlines draw, then crossfades into the filled wordmark. The sequence reverses with scroll.
+- Mobile menu, project pages, filters, static fallback and motion preference remain available.
 
-## Browser verification
+## Verification
 
-The original motion pass used `index-DGbmBQHr.js` and `HeroScene-Zc2PnsyY.js`. The subsequent ink/pointer refinement builds as `index-DAwQraF8.js` and `HeroScene-BHO-FFwH.js`.
+- Four full TypeScript/Vite production builds passed during integration; the last tested application bundle is `index-CenEyUmn.js`. The Three.js vendor chunk remains about 516.6 kB and loads separately from the initial application.
+- Three meaningful Node tests pass: eased progress/offset round trips, agreement of all six card stops across controls/restoration, and entry/exit endpoint holds.
+- Desktop browser testing at 1280×720 observed a ready GPU scene, one canvas and no shader errors after fixing a GLSL reserved identifier. Shader diagnostics now expose compile/link logs instead of swallowing them.
+- Full-screen loader bounds were 1280×720; sweeping paths extend beyond the viewport and move inward. Hero copy opacity was zero during the drawing stage.
+- Repeated large wheel gestures reached progress 0 / .2 / .4 / .6 / .8 without skipping the gallery. The sixth stop remains visible; cards then exit left, followed by a separate R-only interval and intermediate pale/flatten values.
+- Native foreground-card click opens its project. History Back and the in-app Back to work link restore the fifth stop at progress .800 / y=6192 with one canvas and no repeated loader. Lenis measurements refresh before restoring a position beyond a shorter project page.
+- Mission resolves to pale mix 1 and R depth .030. Mid-portal observations showed travel .425 and depth .442, then travel .943 / reveal .727 / depth .945. The rainbow side, radial warp and media handoff were inspected visually.
+- Closing progress .316 showed the R moving and partially drawn CREATE contours; later progress completed the surrounding outlines. Reverse scrolling remains driven by the same normalized values.
+- At 390×844 there is no horizontal overflow. Menu opens, Escape closes it, motion-off removes the canvas and exposes all text; motion-on restores one ready scene. The mobile closing R scales to the wordmark slot.
+- Route anchors wait for menu/intro unlock before starting Lenis movement, avoiding its restart cancelling an anchor animation. Fresh mobile navigation reaches About with its top at the viewport origin; direct contact-hash reload also restores its section after the loader.
 
-- TypeScript checking and Vite production build pass; new shaders compile in the browser with renderer status ready and no captured console errors.
-- Construction SVG draws a complete R contour. Loader releases its scroll lock and reveals one active canvas.
-- Desktop project controls reach all six stops. At the last stop, work visibility remains 1.
-- A real canvas click on the fifth foreground panel opens Interactive experiment. Browser Back restores progress .800 at y=3600; Forward and the in-app Back to work link also restore that card.
-- The renderer stays mounted and pauses on project routes; returning home keeps one canvas and does not repeat the loader.
-- Intermediate transition values were observed at y=4644: work visibility .575, pale mix .232, body RGB(57,60,59), and mission title translate-y 23.04px. Reverse scrolling produces intermediate values again rather than jumping to a chapter flag.
-- Mission reaches pale mix 1 at y=5040, with black header navigation. Services reaches service mix 1 and pale mix 0 at its start.
-- The 390px mobile hero fits without horizontal overflow. Menu opening, Escape dismissal, restored scrolling, motion-off, and motion-on work.
-- Motion-off removes the canvas and restores visible mission/vision headings. All / Video / Code filters show 6 / 3 / 3 records.
-- An editing case study loads after direct URL reload without initializing the GPU scene. Its title and sample content are correct.
+### Final verification limitation
 
-Screenshots were saved in the workspace's `work/portfolio-validation` directory. These checks verify behavior and composition, not a measured frame-rate budget or pixel-identical reproduction.
+The final review stabilized the scroll callback so changing motion preference cannot rerun route restoration, and allowed immediate POP positioning during the intro lock so a bottom-of-page reload starts the hero before the GPU handoff. Sol reviewed both guards. The final browser recheck timed out repeatedly, and subsequent TypeScript/Vite reruns stalled on the local host. These last guard changes therefore have source review but no completed final runtime recheck. Earlier production screenshots and interaction checks remain valid evidence for the sequence; they are not proof of these final two edge cases.
 
-### Ink and pointer follow-up
+Screenshots are stored outside the repository in the workspace's `work/portfolio-validation` directory. Browser inspection verifies composition and interactions, not a measured frame-rate budget or exact pixel parity with Alche.
 
-- Sustained mouse-position tilt now supplements the movement impulse. Desktop browser observations at opposite horizontal positions showed yaw about -.483 and +.476 radians, with visible changes to the R's side faces and reflections.
-- A separate low-resolution pigment field adds a seeded, irregular intro splatter and movement-driven desktop color trails. Blue-black tiled patterns, asynchronous stripe/UV glitches, localized cyan/violet glow, and cooler reflections refine the palette. The existing pale scene remains a separate continuous blend.
-- The three-second depth/reveal sequence precedes the surrounding text. A captured frame at reveal .355 showed the R and ink while hero paragraph opacity and header opacity were both 0; after completion they reached 1. The motion control now follows the same delayed metadata gate.
-- The final production bundle renders with one ready canvas and no captured shader errors. The 390px viewport has no horizontal overflow; the menu opens, Escape closes it, and motion-off removes the canvas while exposing all text immediately. Re-enabling motion returns one ready canvas without replaying the intro.
-- The final Motion study route opens from the work scene. Back to work restores y=720 / progress .000 with one canvas, reveal 1, and no loader.
-- Luna 6 handled pigment transport and reveal staging in separate files; Sol 6.1 reviewed bindings, bounded input, missed-intro handling, reduced motion, and resource cleanup. Root performed the live browser checks.
+## Content and release
 
-The browser connection intermittently stalled during this pass and recovered; this is not a frame-rate measurement. Physical-device performance remains to be measured.
+Real editing MP4s, coding projects, display name, contact email and chosen social profiles are still needed. Instagram reel links can use click-to-load embeds when the platform permits; supplied MP4 files allow controlled playback on the curved cards and background. Actual supplied-media playback remains unverified until those assets exist.
 
-## Content and release work
+Physical-phone performance, WebGL context-loss recovery, deployed-host routing and social previews remain unverified. The site is a local preview; no website has been published. Implementation lives in the private GitHub repository.
 
-- Display name, contact email, chosen social profiles, real editing media, and actual coding projects are still needed.
-- Instagram availability and actual MP4 playback must be checked after media is supplied. Public reel links can be embedded when allowed; original MP4s give more control over presentation.
-- Physical-phone performance, WebGL context-loss recovery, production-host routing, crawler metadata, and social previews remain unverified.
-- Vite reports a 515.9 kB Three.js vendor chunk. The scene loads dynamically; optimize further against measured device performance.
-
-The preview is local and no website has been published. The private GitHub repository stores the implementation. The new source evidence is in [motion refinement](MOTION-REFINEMENT.md), and the larger archive is in [Alche audit](ALCHE-AUDIT.md). The portfolio uses original assets and an Inter substitute for the reference's Acumin headings; it does not claim exact parity with Alche's geometry, media, or randomized frames.
+Luna 6 handled scene/media and scroll staging; Sol 6.1 audited the primary source, reviewed integration, and completed GPU bindings. Root performed source integration and live browser checks. Verified source constants, font distinctions and sequence evidence are recorded in [sequence audit](SEQUENCE-AUDIT.md), with the earlier [Alche audit](ALCHE-AUDIT.md) retained as context.

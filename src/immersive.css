@@ -130,6 +130,9 @@ body[data-scene-chapter="services"] .immersive-wordmark {
 body[data-scene-chapter="contact"] .immersive-wordmark {
   opacity: 0.12;
 }
+body[data-scene-chapter="contact"] .immersive-wordmark > span {
+  opacity: 0;
+}
 .immersive-fixed-grain {
   position: fixed;
   z-index: 3;
@@ -235,7 +238,7 @@ body[data-intro-stage="revealing"] .immersive-motion-toggle:focus-visible {
 }
 .immersive-works-track {
   position: relative;
-  height: calc(100svh * var(--work-count, 6));
+  height: calc(100svh * var(--work-track-screens, 11.7));
   scroll-margin-top: 0;
 }
 .immersive-sticky {
@@ -248,9 +251,27 @@ body[data-intro-stage="revealing"] .immersive-motion-toggle:focus-visible {
 }
 .immersive-work-scene {
   opacity: var(--work-visibility, 1);
-  transform: translateY(calc((1 - var(--work-visibility, 1)) * -22px));
+  transform: translate3d(
+    calc(var(--work-exit, 0) * -35vw),
+    calc((1 - var(--work-visibility, 1)) * -22px),
+    0
+  );
   display: flex;
   align-items: center;
+}
+.immersive-hero > .immersive-index,
+.immersive-hero > .immersive-hero-note,
+.immersive-hero > .immersive-scroll-hint {
+  opacity: calc(
+    (1 - var(--hero-exit, 0)) * var(--portfolio-hero-meta-reveal, 1)
+  );
+  transform: translateY(calc(var(--hero-exit, 0) * -18px));
+  transition: opacity 80ms linear;
+}
+.immersive-hero > .immersive-scroll-hint {
+  opacity: calc(
+    (1 - var(--hero-exit, 0)) * var(--portfolio-hero-scroll-reveal, 1)
+  );
 }
 .immersive-work-visual {
   position: absolute;
@@ -394,6 +415,10 @@ body[data-intro-stage="revealing"] .immersive-motion-toggle:focus-visible {
 .immersive-light {
   color: #161818;
   background: transparent;
+}
+.immersive-vision .immersive-statement h2 {
+  filter: blur(calc(var(--portal-travel, 0) * 4px));
+  opacity: calc(1 - var(--portal-travel, 0) * 0.45);
 }
 .immersive-light .immersive-index {
   color: #575b58;
@@ -604,6 +629,17 @@ body[data-intro-stage="revealing"] .immersive-motion-toggle:focus-visible {
 }
 .immersive-contact {
   background: transparent;
+  height: calc(100svh * 2.2);
+  min-height: calc(100svh * 2.2);
+  padding: 0;
+  overflow: visible;
+}
+.immersive-contact-stage {
+  position: sticky;
+  top: 0;
+  height: 100svh;
+  min-height: 100svh;
+  overflow: hidden;
 }
 .immersive-contact-lockup {
   position: absolute;
@@ -631,16 +667,26 @@ body[data-intro-stage="revealing"] .immersive-motion-toggle:focus-visible {
   color: transparent;
   -webkit-text-stroke: 1px #f5f5f266;
 }
+.closing-create {
+  position: absolute;
+  z-index: 1;
+  top: 31%;
+  left: 50%;
+  width: min(72vw, 1180px);
+  opacity: 1;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
 .immersive-contact-copy {
   position: absolute;
   z-index: 2;
-  top: 51%;
-  left: 15vw;
+  top: 70%;
+  left: 10vw;
   transform: translateY(-50%);
 }
 .immersive-contact-copy h2 {
-  margin-top: 25px;
-  font-size: clamp(58px, 9vw, 128px);
+  margin-top: 12px;
+  font-size: clamp(44px, 6.7vw, 88px);
   line-height: 0.82;
   font-weight: 500;
   letter-spacing: -0.095em;
@@ -651,14 +697,14 @@ body[data-intro-stage="revealing"] .immersive-motion-toggle:focus-visible {
   font-style: normal;
 }
 .immersive-contact-copy > p {
-  margin-top: 30px;
+  margin-top: 18px;
   color: #a2a4a1;
 }
 .immersive-contact-link {
   display: inline-flex;
   align-items: center;
   gap: 13px;
-  margin-top: 33px;
+  margin-top: 19px;
   padding: 14px 19px;
   border: 1px solid #ffffff77;
   border-radius: 40px;
@@ -856,7 +902,7 @@ body[data-scene-chapter="vision"] .immersive-home > .immersive-motion-toggle {
   pointer-events: none;
 }
 .immersive-home.is-static .immersive-light {
-  background: #d6d8d3;
+  background: #D7DBDC;
 }
 .immersive-home.is-static .immersive-services,
 .immersive-home.is-static .immersive-contact {
@@ -965,9 +1011,6 @@ body[data-scene-chapter="vision"] .immersive-home > .immersive-motion-toggle {
   }
   .immersive-scroll-hint {
     bottom: 5%;
-  }
-  .immersive-works-track {
-    height: calc(100svh * var(--work-count, 6));
   }
   .immersive-work-visual {
     top: 36%;
@@ -1116,11 +1159,12 @@ body[data-scene-chapter="vision"] .immersive-home > .immersive-motion-toggle {
     font-size: 8px;
   }
   .immersive-contact-copy {
-    left: 8vw;
-    top: 49%;
+    left: 7vw;
+    right: 7vw;
+    top: 70%;
   }
   .immersive-contact-copy h2 {
-    font-size: clamp(59px, 15vw, 95px);
+    font-size: clamp(43px, 12vw, 70px);
   }
   .immersive-contact-copy > p {
     font-size: 9px;
@@ -1179,6 +1223,10 @@ body[data-scene-chapter="vision"] .immersive-home > .immersive-motion-toggle {
     right: 14px;
     bottom: 12px;
     font-size: 7px;
+  }
+  .immersive-contact {
+    height: calc(100svh * 2.2);
+    min-height: calc(100svh * 2.2);
   }
 }
 @media (prefers-reduced-motion: reduce) {

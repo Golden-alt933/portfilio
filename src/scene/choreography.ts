@@ -15,6 +15,14 @@ export interface SceneMotion {
   servicesMix: number;
   contactMix: number;
   portalProgress: number;
+  heroExit: number;
+  workEntry: number;
+  workExit: number;
+  paleFlatten: number;
+  portalTravel: number;
+  portalReveal: number;
+  workMediaProgress: number;
+  finaleProgress: number;
   transitionMix: number;
   transitionSpin: number;
   cameraDive: number;
@@ -24,17 +32,26 @@ export interface SceneMotion {
   angularVelocity: number;
 }
 
-/**
- * Damped values shared by the letter, panels, camera and chapter compositing.
- * The homepage remains the sole writer of SceneState.
- */
+const unit = (value: number) => THREE.MathUtils.clamp(value, 0, 1);
+
+/** Smooths the shared scroll channels into one coherent, persistent camera/letter response. */
 export class SceneChoreography {
-  private progress = 0;
-  private workVisibility = 0;
-  private lightMix = 0;
-  private servicesMix = 0;
-  private contactMix = 0;
-  private portalProgress = 0;
+  private values = {
+    progress: 0,
+    workVisibility: 0,
+    lightMix: 0,
+    servicesMix: 0,
+    contactMix: 0,
+    portalProgress: 0,
+    heroExit: 0,
+    workEntry: 0,
+    workExit: 0,
+    paleFlatten: 0,
+    portalTravel: 0,
+    portalReveal: 0,
+    workMediaProgress: 0,
+    finaleProgress: 0,
+  };
   private angularVelocity = 0;
   private automaticYaw = 0;
   private pointerYaw = 0;
@@ -46,50 +63,41 @@ export class SceneChoreography {
     reducedMotion: boolean,
     pointerImpulse: PointerImpulse,
   ): SceneMotion {
+    const delta = Math.min(0.05, Math.max(0.001, dt));
     const step = (target: number, current: number, rate: number) =>
-      current + (target - current) * Math.min(1, dt * rate);
-    this.progress = step(
-      THREE.MathUtils.clamp(state.workProgress, 0, 1),
-      this.progress,
-      5,
-    );
-    this.workVisibility = step(
-      THREE.MathUtils.clamp(state.workVisibility, 0, 1),
-      this.workVisibility,
-      5,
-    );
-    this.lightMix = step(
-      THREE.MathUtils.clamp(state.lightMix, 0, 1),
-      this.lightMix,
-      3.5,
-    );
-    this.servicesMix = step(
-      THREE.MathUtils.clamp(state.servicesMix, 0, 1),
-      this.servicesMix,
-      3.5,
-    );
-    this.contactMix = step(
-      THREE.MathUtils.clamp(state.contactMix, 0, 1),
-      this.contactMix,
-      3.5,
-    );
-    this.portalProgress = step(
-      THREE.MathUtils.clamp(state.portalProgress, 0, 1),
-      this.portalProgress,
-      4,
-    );
+      current + (target - current) * Math.min(1, delta * rate);
+    const targets = {
+      progress: unit(state.workProgress),
+      workVisibility: unit(state.workVisibility),
+      lightMix: unit(state.lightMix),
+      servicesMix: unit(state.servicesMix),
+      contactMix: unit(state.contactMix),
+      portalProgress: unit(state.portalProgress),
+      heroExit: unit(state.heroExit),
+      workEntry: unit(state.workEntry),
+      workExit: unit(state.workExit),
+      paleFlatten: unit(state.paleFlatten),
+      portalTravel: unit(state.portalTravel),
+      portalReveal: unit(state.portalReveal),
+      workMediaProgress: unit(state.workMediaProgress),
+      finaleProgress: unit(state.finaleProgress),
+    };
+    for (const key of Object.keys(targets) as (keyof typeof targets)[]) {
+      const rate = key === "progress" ? 5 : key === "workMediaProgress" ? 7 : 4.5;
+      this.values[key] = step(targets[key], this.values[key], rate);
+    }
 
-    const transitionMix = this.lightMix * (1 - this.workVisibility);
+    const { workVisibility, lightMix, servicesMix, contactMix, paleFlatten, portalTravel } = this.values;
+    const transitionMix = Math.max(lightMix, paleFlatten) * (1 - workVisibility);
     const transitionSpin =
-      this.lightMix * (1 - this.lightMix) * (1 - this.workVisibility);
+      Math.max(lightMix, paleFlatten) * (1 - Math.max(lightMix, paleFlatten)) * (1 - workVisibility);
     const targetSpeed =
-      this.workVisibility * 0.46 +
-      this.servicesMix * 0.12 +
-      transitionSpin * 0.16;
+      workVisibility * 0.37 +
+      servicesMix * 0.1 +
+      transitionSpin * 0.16 +
+      this.values.heroExit * (1 - workVisibility) * 0.06;
     this.angularVelocity = step(
-      targetSpeed +
-        THREE.MathUtils.clamp(state.scrollVelocity, -30, 30) *
-          (this.workVisibility > 0.01 ? 0.001 : 0),
+      targetSpeed + THREE.MathUtils.clamp(state.scrollVelocity, -30, 30) * (workVisibility > 0.01 ? 0.001 : 0),
       this.angularVelocity,
       2.2,
     );
@@ -100,70 +108,31 @@ export class SceneChoreography {
       this.automaticYaw = 0;
       this.angularVelocity = 0;
     } else {
-      const intensity =
-        THREE.MathUtils.smoothstep(state.reveal, 0.15, 0.75) *
-        THREE.MathUtils.clamp(
-          1 -
-            Math.max(
-              this.workVisibility,
-              this.lightMix,
-              this.contactMix,
-              this.servicesMix,
-            ) +
-            this.workVisibility * 0.2,
-          0,
-          1,
-        );
-      // Position supplies a held tilt; movement adds a restrained spring impulse.
-      // Bounded damping prevents long mouse sweeps from accumulating rotations.
-      this.rotationX += -pointerImpulse.y * 0.34 * intensity;
-      this.pointerYaw += pointerImpulse.x * 0.46 * intensity;
+      const sceneControl = Math.max(workVisibility, lightMix, paleFlatten, contactMix, servicesMix, portalTravel);
+      const pointerGain = THREE.MathUtils.smoothstep(state.reveal, 0.15, 0.75) * (1 - sceneControl * 0.78);
+      this.rotationX += -pointerImpulse.y * 0.34 * pointerGain;
+      this.pointerYaw += pointerImpulse.x * 0.46 * pointerGain;
       const returnPitch =
-        -0.12 *
-          (1 -
-            Math.max(
-              this.workVisibility,
-              this.lightMix,
-              this.servicesMix,
-              this.contactMix,
-            )) +
-        0.13 * this.workVisibility +
-        0.06 * this.servicesMix;
-      this.rotationX = step(
-        returnPitch - pointerImpulse.positionY * 0.28 * intensity,
-        this.rotationX,
-        4.5,
-      );
-      this.pointerYaw = step(
-        pointerImpulse.positionX * 0.58 * intensity,
-        this.pointerYaw,
-        4.5,
-      );
+        -0.12 * (1 - sceneControl) + 0.13 * workVisibility + 0.06 * servicesMix;
+      this.rotationX = step(returnPitch - pointerImpulse.positionY * 0.28 * pointerGain, this.rotationX, 4.5);
+      this.pointerYaw = step(pointerImpulse.positionX * 0.58 * pointerGain, this.pointerYaw, 4.5);
       this.rotationX = THREE.MathUtils.clamp(this.rotationX, -0.5, 0.5);
       this.pointerYaw = THREE.MathUtils.clamp(this.pointerYaw, -0.65, 0.65);
-      if (this.workVisibility + this.servicesMix + transitionSpin > 0.005) {
-        this.automaticYaw =
-          (this.automaticYaw + this.angularVelocity * dt) % (Math.PI * 2);
+
+      if (workVisibility + servicesMix + transitionSpin > 0.005) {
+        this.automaticYaw = (this.automaticYaw + this.angularVelocity * delta) % (Math.PI * 2);
       } else {
-        const returnAngle = Math.atan2(
-          Math.sin(-this.automaticYaw),
-          Math.cos(-this.automaticYaw),
-        );
-        this.automaticYaw += returnAngle * Math.min(1, dt * 2);
+        const returnAngle = Math.atan2(Math.sin(-this.automaticYaw), Math.cos(-this.automaticYaw));
+        this.automaticYaw += returnAngle * Math.min(1, delta * 2);
       }
     }
 
     return {
-      progress: this.progress,
-      workVisibility: this.workVisibility,
-      lightMix: this.lightMix,
-      servicesMix: this.servicesMix,
-      contactMix: this.contactMix,
-      portalProgress: this.portalProgress,
+      ...this.values,
       transitionMix,
       transitionSpin,
-      cameraDive: transitionSpin * 4,
-      reveal: THREE.MathUtils.clamp(state.reveal, 0, 1),
+      cameraDive: transitionSpin * 4 + portalTravel * 1.8,
+      reveal: unit(state.reveal),
       rotationX: this.rotationX,
       rotationY: this.automaticYaw + this.pointerYaw,
       angularVelocity: this.angularVelocity,

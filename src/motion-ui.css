@@ -101,11 +101,26 @@ button:focus-visible .motion-slot__line--inverse,
   transform: translate(-50%, -50%);
 }
 
+.intro-loader__field {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  stroke: #919191;
+  stroke-width: 0.85;
+  mask-image: linear-gradient(90deg, transparent, #000 9%, #000 91%, transparent);
+}
+
+.intro-loader__sweep {
+  opacity: 0;
+  vector-effect: non-scaling-stroke;
+}
+
 .intro-loader__svg {
   display: block;
   width: 100%;
   overflow: visible;
-  color: #aab5b5;
+  color: #919191;
 }
 
 .intro-loader__draft {
@@ -124,13 +139,13 @@ button:focus-visible .motion-slot__line--inverse,
 }
 
 .intro-loader__r-fill {
-  fill: #e8eded;
+  fill: #fff;
   opacity: 0;
 }
 
 .intro-loader__r-stroke {
   fill: none;
-  stroke: #e8eded;
+  stroke: #fff;
   stroke-width: 1.25;
   stroke-linecap: square;
   stroke-linejoin: miter;
@@ -163,6 +178,7 @@ button:focus-visible .motion-slot__line--inverse,
 }
 
 @media (max-width: 600px) {
+  .intro-loader__field { mask-image: none; }
   .intro-loader__stage {
     width: min(108vw, 78vh);
     top: 45%;

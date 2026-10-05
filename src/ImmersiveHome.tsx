@@ -5,6 +5,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
 } from "react";
 import { Link, useNavigationType } from "react-router-dom";
 import {
@@ -21,10 +22,21 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { profile, projects } from "./content";
 import type { ProjectCategory } from "./content";
 import { ProjectVisual, ReelDialog } from "./Media";
+import { CreateWordmark } from "./CreateWordmark";
 import { useSceneHost } from "./SceneHost";
 import { useSmoothScroll } from "./ScrollProvider";
 import type { SceneChapter } from "./SceneState";
 import { IntroLoader, SlotLabel, ScrambleText } from "./MotionUI";
+import {
+  WORK_ENTRY_SCREENS,
+  WORK_EXIT_SCREENS,
+  clamp01,
+  smooth01,
+  workCardOffset,
+  workLastStopOffset,
+  workProgressAtOffset,
+  workTrackScreens,
+} from "./scene/sequence";
 import "./immersive.css";
 
 gsap.registerPlugin(ScrollTrigger);
@@ -172,11 +184,8 @@ export default function ImmersiveHome() {
     let lastTime = performance.now();
     let velocity = 0;
     let paletteTimeline: gsap.core.Timeline | undefined;
-    const clamp = (value: number) => Math.max(0, Math.min(1, value));
-    const smooth = (value: number) => {
-      const t = clamp(value);
-      return t * t * (3 - 2 * t);
-    };
+    const clamp = clamp01;
+    const smooth = smooth01;
     const measure = () => {
       metrics = sections.map((element) => {
         const rect = element!.getBoundingClientRect();
@@ -204,11 +213,11 @@ export default function ImmersiveHome() {
       lastTime = time;
       const chapter = chapters[index];
       const workMetric = metrics[1];
-      const workTravel = Math.max(
-        1,
-        workMetric.end - workMetric.start - window.innerHeight,
+      const vh = window.innerHeight;
+      const workOffset = scroll - workMetric.start;
+      const workProgress = clamp(
+        workProgressAtOffset(workOffset, vh, workProjects.length),
       );
-      const workProgress = clamp((scroll - workMetric.start) / workTravel);
       if (
         !restorationPending.current &&
         scroll >= workMetric.start &&
@@ -224,14 +233,23 @@ export default function ImmersiveHome() {
           setActiveWork(nextWork);
         }
       }
-      const vh = window.innerHeight;
-      const lastWorkStop = workMetric.start + workTravel;
-      const workVisibility =
-        smooth((scroll - (workMetric.start - vh * 0.55)) / (vh * 0.55)) *
-        (1 - smooth((scroll - lastWorkStop) / vh));
-      const lightEnter = smooth(
+      const workEntry = smooth(
+        (workOffset - vh * WORK_ENTRY_SCREENS * 0.25) /
+          (vh * WORK_ENTRY_SCREENS * 0.75),
+      );
+      const lastWorkStop = workLastStopOffset(
+        workMetric.start,
+        vh,
+        workProjects.length,
+      );
+      const workExit = smooth(
+        (scroll - lastWorkStop) / (vh * WORK_EXIT_SCREENS),
+      );
+      const workVisibility = clamp(workEntry * (1 - workExit));
+      const paleFlatten = smooth(
         (scroll - (metrics[2].start - vh * 0.8)) / (vh * 0.8),
       );
+      const lightEnter = paleFlatten;
       const lightExit =
         1 - smooth((scroll - (metrics[4].start - vh * 0.8)) / (vh * 0.8));
       const lightMix = clamp(lightEnter * lightExit);
@@ -241,8 +259,18 @@ export default function ImmersiveHome() {
       const contactMix = smooth(
         (scroll - (metrics[5].start - vh * 0.8)) / (vh * 0.8),
       );
-      const portalProgress = smooth(
-        (scroll - (metrics[4].start - vh * 0.8)) / (vh * 0.8),
+      const portalTravel = smooth(
+        (scroll - metrics[3].start) /
+          Math.max(vh, metrics[4].start - metrics[3].start),
+      );
+      const portalReveal = smooth(
+        (scroll - (metrics[3].start + vh * 0.58)) /
+          Math.max(vh * 0.12, metrics[4].start - metrics[3].start - vh * 0.58),
+      );
+      const portalProgress = portalTravel;
+      const finaleProgress = smooth(
+        (scroll - metrics[5].start) /
+          Math.max(1, metrics[5].end - metrics[5].start - vh),
       );
       const timedReveal =
         revealStartedAt.current === null
@@ -267,12 +295,29 @@ export default function ImmersiveHome() {
         servicesMix: clamp(servicesMix),
         contactMix,
         portalProgress,
+        heroExit: smooth((scroll - metrics[0].start) / Math.max(vh, metrics[0].end - metrics[0].start)),
+        workEntry,
+        workExit,
+        paleFlatten,
+        portalTravel,
+        portalReveal,
+        workMediaProgress:
+          activeWorkRef.current / Math.max(1, workProjects.length - 1),
+        finaleProgress,
       };
       story.dataset.workVisibility = workVisibility.toFixed(3);
       story.dataset.lightMix = lightMix.toFixed(3);
       story.dataset.servicesMix = clamp(servicesMix).toFixed(3);
       story.dataset.contactMix = contactMix.toFixed(3);
       story.dataset.portalProgress = portalProgress.toFixed(3);
+      story.dataset.heroExit = sceneState.current.heroExit.toFixed(3);
+      story.dataset.workEntry = workEntry.toFixed(3);
+      story.dataset.workExit = workExit.toFixed(3);
+      story.dataset.paleFlatten = paleFlatten.toFixed(3);
+      story.dataset.portalTravel = portalTravel.toFixed(3);
+      story.dataset.portalReveal = portalReveal.toFixed(3);
+      story.dataset.workMediaProgress = sceneState.current.workMediaProgress.toFixed(3);
+      story.dataset.finaleProgress = finaleProgress.toFixed(3);
       story.dataset.workProgress = workProgress.toFixed(3);
       document.body.dataset.introProgress = introReveal.toFixed(3);
       document.body.dataset.introStage =
@@ -335,6 +380,17 @@ export default function ImmersiveHome() {
         "--scene-contact-mix",
         String(reducedMotion ? 0 : contactMix),
       );
+      story.style.setProperty("--hero-exit", String(sceneState.current.heroExit));
+      story.style.setProperty("--work-entry", String(workEntry));
+      story.style.setProperty("--work-exit", String(workExit));
+      story.style.setProperty("--pale-flatten", String(paleFlatten));
+      story.style.setProperty("--portal-travel", String(portalTravel));
+      story.style.setProperty("--portal-reveal", String(portalReveal));
+      story.style.setProperty(
+        "--work-media-progress",
+        String(sceneState.current.workMediaProgress),
+      );
+      story.style.setProperty("--finale-progress", String(finaleProgress));
       document.body.dataset.sceneChapter = chapter;
       document.body.style.setProperty("--scene-light-mix", String(lightMix));
       paletteTimeline?.progress(lightMix);
@@ -362,7 +418,7 @@ export default function ImmersiveHome() {
         .fromTo(
           document.body,
           { backgroundColor: "#080909" },
-          { backgroundColor: "#dce7df", duration: 1, ease: "none" },
+          { backgroundColor: "#D7DBDC", duration: 1, ease: "none" },
         );
     }
     const chapterContext = gsap.context(() => {
@@ -466,11 +522,13 @@ export default function ImmersiveHome() {
     );
     const track = worksRef.current;
     if (track) {
-      const travel = Math.max(1, track.offsetHeight - window.innerHeight);
-      const destination =
-        track.getBoundingClientRect().top +
-        window.scrollY +
-        (target * travel) / Math.max(1, workProjects.length - 1);
+      const sectionTop = track.getBoundingClientRect().top + window.scrollY;
+      const destination = workCardOffset(
+        target,
+        sectionTop,
+        window.innerHeight,
+        workProjects.length,
+      );
       scrollTo(destination, { duration: 0.8 });
     }
   };
@@ -560,6 +618,7 @@ export default function ImmersiveHome() {
         className="immersive-works-track"
         id="work"
         ref={worksRef}
+        style={{ "--work-track-screens": workTrackScreens(workProjects.length) } as CSSProperties}
         aria-label="Selected work"
       >
         <div className="immersive-sticky immersive-work-scene">
@@ -811,38 +870,37 @@ export default function ImmersiveHome() {
         ref={contactRef}
         aria-labelledby="contact-title"
       >
-        <div className="immersive-index immersive-mono">
-          <span>05 / YOUR MOVE</span>
-          <span>THE NEXT FRAME IS OPEN</span>
+        <div className="immersive-contact-stage">
+          <div className="immersive-index immersive-mono">
+            <span>05 / YOUR MOVE</span>
+            <span>THE NEXT FRAME IS OPEN</span>
+          </div>
+          <CreateWordmark className="closing-create" />
+          <div className="immersive-contact-copy">
+            <span className="immersive-section-kicker immersive-mono">
+              LET'S MAKE SOMETHING MATTER
+            </span>
+            <h2 id="contact-title">
+              Have a good
+              <br />
+              <i>feeling?</i>
+            </h2>
+            {profile.email ? (
+              <a
+                href={`mailto:${profile.email}`}
+                className="immersive-contact-link"
+              >
+                <Mail size={18} /> {profile.email}
+                <ArrowRight size={17} />
+              </a>
+            ) : (
+              <p className="immersive-mono">OPEN FOR THE RIGHT PROJECT</p>
+            )}
+          </div>
+          <a href="#work" className="immersive-back-top immersive-mono">
+            BACK TO THE WORK <ArrowRight size={14} />
+          </a>
         </div>
-        <div className="immersive-contact-lockup" aria-hidden="true">
-          <span>CREATE</span>
-          <b>R</b>
-        </div>
-        <div className="immersive-contact-copy">
-          <span className="immersive-section-kicker immersive-mono">
-            LET'S MAKE SOMETHING MATTER
-          </span>
-          <h2 id="contact-title">
-            Have a good
-            <br />
-            <i>feeling?</i>
-          </h2>
-          {profile.email ? (
-            <a
-              href={`mailto:${profile.email}`}
-              className="immersive-contact-link"
-            >
-              <Mail size={18} /> {profile.email}
-              <ArrowRight size={17} />
-            </a>
-          ) : (
-            <p className="immersive-mono">OPEN FOR THE RIGHT PROJECT</p>
-          )}
-        </div>
-        <a href="#work" className="immersive-back-top immersive-mono">
-          BACK TO THE WORK <ArrowRight size={14} />
-        </a>
       </section>
 
       <section

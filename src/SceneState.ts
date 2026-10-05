@@ -18,6 +18,14 @@ export interface SceneState {
   servicesMix: number;
   contactMix: number;
   portalProgress: number;
+  heroExit: number;
+  workEntry: number;
+  workExit: number;
+  paleFlatten: number;
+  portalTravel: number;
+  portalReveal: number;
+  workMediaProgress: number;
+  finaleProgress: number;
 }
 
 export function initialSceneState(): SceneState {
@@ -32,5 +40,13 @@ export function initialSceneState(): SceneState {
     servicesMix: 0,
     contactMix: 0,
     portalProgress: 0,
+    heroExit: 0,
+    workEntry: 0,
+    workExit: 0,
+    paleFlatten: 0,
+    portalTravel: 0,
+    portalReveal: 0,
+    workMediaProgress: 0,
+    finaleProgress: 0,
   };
 }

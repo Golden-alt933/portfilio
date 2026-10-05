@@ -3,10 +3,13 @@ import * as THREE from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import type { Project } from "./content";
 import type { SceneState } from "./SceneState";
+import { drawCreateWordmark } from "./wordmark";
 import { FluidField } from "./scene/FluidField";
 import { SceneChoreography } from "./scene/choreography";
+import { directMp4Url, ProjectVideoTexture } from "./scene/media";
 import {
   backgroundFragment,
+  compositeFragment,
   displayFragment,
   fullscreenVertex,
   panelFragment,
@@ -87,6 +90,10 @@ function wordmarkTexture(text: string, canvas: HTMLCanvasElement) {
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (text === "CREATE") {
+    drawCreateWordmark(ctx, canvas.width, canvas.height);
+    return;
+  }
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.font =
@@ -126,12 +133,20 @@ export default function HeroScene({
   failureRef.current = onFailure;
   const projectsRef = useRef(projects);
   projectsRef.current = projects;
+  const videoMediaRef = useRef(new Map<number, ProjectVideoTexture>());
   const selectRef = useRef(onSelect);
   selectRef.current = onSelect;
 
   useEffect(() => {
+    if (!active)
+      videoMediaRef.current.forEach((media) => media.setActive(false));
+  }, [active]);
+
+  useEffect(() => {
     const holder = container.current;
     if (!holder) return;
+    const mediaCache = videoMediaRef.current;
+    mediaCache.clear();
     let renderer: THREE.WebGLRenderer;
     try {
       renderer = new THREE.WebGLRenderer({
@@ -148,15 +163,21 @@ export default function HeroScene({
     }
     holder.dataset.rendererStatus = "loading";
     let shaderFailed = false;
-    renderer.debug.onShaderError = (gl, program) => {
+    renderer.debug.onShaderError = (gl, program, vertexShader, fragmentShader) => {
       if (gl.getProgramParameter(program, gl.LINK_STATUS)) return;
       shaderFailed = true;
+      mediaCache.forEach((media) => media.setActive(false));
       holder.dataset.rendererStatus = "fallback";
+      const diagnostic = [gl.getProgramInfoLog(program), gl.getShaderInfoLog(vertexShader), gl.getShaderInfoLog(fragmentShader)].filter(Boolean).join("\n");
+      holder.dataset.shaderError = diagnostic;
+      console.error("Portfolio shader compilation failed:", diagnostic);
       holder.classList.remove("scene-ready");
       readyRef.current(false);
       failureRef.current?.();
     };
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+    renderer.setPixelRatio(
+      Math.min(window.devicePixelRatio || 1, window.innerWidth < 700 ? 1.18 : 1.5),
+    );
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.1;
@@ -170,12 +191,39 @@ export default function HeroScene({
     const bgScene = new THREE.Scene();
     const bgCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10);
     bgCamera.position.z = 2;
+    const compositeScene = new THREE.Scene();
+    const compositeCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10);
+    compositeCamera.position.z = 2;
+    const compositeTarget = new THREE.WebGLRenderTarget(1, 1, {
+      minFilter: THREE.LinearFilter,
+      magFilter: THREE.LinearFilter,
+      depthBuffer: true,
+      stencilBuffer: false,
+    });
+    compositeTarget.texture.colorSpace = THREE.NoColorSpace;
+    const compositeMaterial = new THREE.ShaderMaterial({
+      uniforms: {
+        uScene: { value: compositeTarget.texture },
+        uAspect: { value: new THREE.Vector2(1, 1) },
+        uTime: { value: 0 },
+        uReveal: { value: 0 },
+        uPortalTravel: { value: 0 },
+        uRipple: { value: 0 },
+      },
+      vertexShader: fullscreenVertex,
+      fragmentShader: compositeFragment,
+      depthWrite: false,
+      depthTest: false,
+      toneMapped: false,
+    });
+    const compositePlane = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), compositeMaterial);
+    compositeScene.add(compositePlane);
     const backgroundTarget = new THREE.WebGLRenderTarget(1, 1, {
       minFilter: THREE.LinearFilter,
       magFilter: THREE.LinearFilter,
       depthBuffer: false,
     });
-    backgroundTarget.texture.colorSpace = THREE.SRGBColorSpace;
+    backgroundTarget.texture.colorSpace = THREE.NoColorSpace;
     scene.background = backgroundTarget.texture;
     const fluid = new FluidField(
       renderer,
@@ -195,6 +243,10 @@ export default function HeroScene({
         uContact: { value: 0 },
         uReveal: { value: 0 },
         uServices: { value: 0 },
+        uPortalMedia: { value: null },
+        uPortalReveal: { value: 0 },
+        uPortalIsVideo: { value: 0 },
+        uPortalAspect: { value: 1200 / 760 },
       },
       vertexShader: fullscreenVertex,
       fragmentShader: backgroundFragment,
@@ -211,7 +263,7 @@ export default function HeroScene({
     const typeMat = new THREE.MeshBasicMaterial({
       map: createTexture,
       transparent: true,
-      opacity: 0.9,
+      opacity: 1,
       depthWrite: false,
       toneMapped: false,
     });
@@ -338,10 +390,10 @@ export default function HeroScene({
       fragmentShader: displayFragment,
     });
     const displayPlane = new THREE.Mesh(
-      new THREE.PlaneGeometry(0.48, 1.52),
+      new THREE.PlaneGeometry(0.42, 4.05),
       displayMaterial,
     );
-    displayPlane.position.set(-0.98, 0.15, 0.34);
+    displayPlane.position.set(-1.18, 0, 0.34);
     displayPlane.renderOrder = 2;
     letter.add(displayPlane);
 
@@ -392,6 +444,7 @@ export default function HeroScene({
               | undefined;
             if (material) {
               material.uniforms.uMap.value = loaded;
+              material.uniforms.uMapAspect.value = loaded.image.width / loaded.image.height;
               material.needsUpdate = true;
             }
           },
@@ -409,7 +462,17 @@ export default function HeroScene({
       }
       geo.computeVertexNormals();
       const mat = new THREE.ShaderMaterial({
-        uniforms: { uMap: { value: tex }, uOpacity: { value: 0 } },
+        uniforms: {
+          uMap: { value: tex },
+          uMedia: { value: tex },
+          uMediaMix: { value: 0 },
+          uMediaIsVideo: { value: 0 },
+          uMediaAspect: { value: 1200 / 760 },
+          uMapAspect: { value: 1200 / 760 },
+          uFrameAspect: { value: 5.5 / 2.6 },
+          uOpacity: { value: 0 },
+          uDim: { value: 1 },
+        },
         transparent: true,
         depthWrite: false,
         side: THREE.DoubleSide,
@@ -438,10 +501,22 @@ export default function HeroScene({
       }
     });
 
-    const serviceMaterial = new THREE.MeshBasicMaterial({
-      map: posters[0],
+    bgMaterial.uniforms.uPortalMedia.value = posters[0];
+    const serviceMaterial = new THREE.ShaderMaterial({
+      uniforms: {
+        uMap: { value: posters[0] },
+        uMedia: { value: posters[0] },
+        uMediaMix: { value: 0 },
+        uMediaIsVideo: { value: 0 },
+        uMediaAspect: { value: 1200 / 760 },
+        uMapAspect: { value: 1200 / 760 },
+        uFrameAspect: { value: 4.7 / 3.1 },
+        uDim: { value: 0.18 },
+        uOpacity: { value: 0 },
+      },
+      vertexShader: panelVertex,
+      fragmentShader: panelFragment,
       transparent: true,
-      opacity: 0,
       depthWrite: false,
       toneMapped: false,
     });
@@ -584,6 +659,9 @@ export default function HeroScene({
       const rect = holder!.getBoundingClientRect();
       width = Math.max(1, rect.width);
       height = Math.max(1, rect.height);
+      renderer.setPixelRatio(
+        Math.min(window.devicePixelRatio || 1, width < 700 ? 1.18 : 1.5),
+      );
       renderer.setSize(width, height, false);
       camera.aspect = width / height;
       camera.fov = width < 700 ? 52 : 35 + 18 / camera.aspect;
@@ -592,6 +670,10 @@ export default function HeroScene({
       backgroundTarget.setSize(
         Math.max(1, Math.floor(width * Math.min(devicePixelRatio, 1.5))),
         Math.max(1, Math.floor(height * Math.min(devicePixelRatio, 1.5))),
+      );
+      compositeTarget.setSize(
+        Math.max(1, Math.floor(width * renderer.getPixelRatio())),
+        Math.max(1, Math.floor(height * renderer.getPixelRatio())),
       );
       fluid.resize(width, height);
       fluid.setEnabled(width > 700);
@@ -608,15 +690,18 @@ export default function HeroScene({
     resize();
     const intersection = new IntersectionObserver(([entry]) => {
       visible = entry.isIntersecting;
+      if (!visible) mediaCache.forEach((media) => media.setActive(false));
     });
     intersection.observe(holder);
     const visibility = () => {
       visible = !document.hidden;
+      if (!visible) mediaCache.forEach((media) => media.setActive(false));
     };
     document.addEventListener("visibilitychange", visibility);
     const lose = (event: Event) => {
       event.preventDefault();
       contextLost = true;
+      mediaCache.forEach((media) => media.setActive(false));
       holder!.classList.remove("scene-ready");
       holder!.dataset.rendererStatus = "fallback";
       readyRef.current(false);
@@ -628,6 +713,7 @@ export default function HeroScene({
       firstFrame = true;
       holder!.dataset.rendererStatus = "loading";
       renderer.compile(scene, camera);
+      renderer.compile(compositeScene, compositeCamera);
     };
     renderer.domElement.addEventListener("webglcontextlost", lose);
     renderer.domElement.addEventListener("webglcontextrestored", restore);
@@ -664,21 +750,30 @@ export default function HeroScene({
         lightMix,
         servicesMix,
         contactMix,
-        portalProgress: portalMix,
+        heroExit,
+        workEntry,
+        workExit,
+        paleFlatten,
+        portalTravel,
+        portalReveal,
+        workMediaProgress,
+        finaleProgress,
         transitionMix,
         cameraDive,
         reveal,
       } = motion;
-      const light = lightMix;
+      const palePhase = paleFlatten * (1 - portalTravel);
+      const light = Math.max(lightMix, palePhase) * (1 - contactMix);
+      const portalPulse = Math.sin(portalTravel * Math.PI) * (1 - contactMix);
+      const cameraApproach = Math.max(0, cameraDive - portalTravel * 1.8) + portalPulse * 0.85;
       bgMaterial.uniforms.uTime.value = now * 0.001;
       bgMaterial.uniforms.uLight.value = light;
       bgMaterial.uniforms.uContact.value = contactMix;
       bgMaterial.uniforms.uServices.value = servicesMix;
       bgMaterial.uniforms.uReveal.value = reveal;
       const wordmarkVisibility =
-        1 - Math.max(workMix, Math.min(1, currentProgress * 6));
+        1 - Math.max(heroExit, workMix, Math.min(1, currentProgress * 6));
       typeMat.opacity =
-        0.9 *
         wordmarkVisibility *
         (1 - contactMix) *
         (1 - lightMix) *
@@ -690,44 +785,76 @@ export default function HeroScene({
       bgMaterial.uniforms.uInk.value = fluid.dye.texture;
       bgMaterial.uniforms.uAspect.value = width / height;
       holder!.dataset.chapter = chapter;
-      // Render background first: the refractive letter samples this target, which never contains the letter or cards.
-      const oldTarget = renderer.getRenderTarget();
+      const center = currentProgress * Math.max(0, panels.length - 1);
+      const mobile = width < 700;
+      const selectedIndex = Math.round(
+        THREE.MathUtils.clamp(workMediaProgress, 0, 1) * Math.max(0, panels.length - 1),
+      );
+      const selectedProject = projectsRef.current[selectedIndex];
+      let selectedVideo = mediaCache.get(selectedIndex);
+      const videoUrl = directMp4Url(selectedProject?.videoUrl);
+      if (videoUrl && !selectedVideo && (workMix > 0.01 || portalReveal > 0.015)) {
+        selectedVideo = new ProjectVideoTexture(videoUrl);
+        mediaCache.set(selectedIndex, selectedVideo);
+      }
+      const mediaActive =
+        !!selectedVideo &&
+        !mobile &&
+        !reducedRef.current &&
+        activeRef.current &&
+        visible &&
+        !document.hidden &&
+        !contextLost &&
+        !shaderFailed &&
+        contactMix < 0.98 &&
+        (workMix > 0.01 || portalReveal > 0.015);
+      mediaCache.forEach((media, index) =>
+        media.setActive(mediaActive && index === selectedIndex),
+      );
+      const selectedPoster = (panels[selectedIndex]?.material as THREE.ShaderMaterial | undefined)?.uniforms.uMap.value as THREE.Texture || posters[selectedIndex] || posters[0];
+      const videoReady = !!selectedVideo?.ready && !selectedVideo.video.paused;
+      const selectedTexture =
+        videoReady && selectedVideo
+          ? selectedVideo.texture
+          : selectedPoster;
+      const mediaAspect =
+        videoReady && selectedVideo && selectedVideo.video.videoHeight > 0
+          ? selectedVideo.video.videoWidth / selectedVideo.video.videoHeight
+          : selectedPoster?.image?.width && selectedPoster?.image?.height
+            ? selectedPoster.image.width / selectedPoster.image.height
+            : 1200 / 760;
+      bgMaterial.uniforms.uPortalMedia.value = selectedTexture;
+      bgMaterial.uniforms.uPortalReveal.value = portalReveal * (1 - contactMix);
+      bgMaterial.uniforms.uPortalIsVideo.value = videoReady ? 1 : 0;
+      bgMaterial.uniforms.uPortalAspect.value = mediaAspect;
+      // Refraction samples an independent background target, avoiding feedback from the letter/portal.
       renderer.setRenderTarget(backgroundTarget);
       renderer.clear(true, true, true);
       renderer.render(bgScene, bgCamera);
-      renderer.setRenderTarget(oldTarget);
-
-      const center = currentProgress * Math.max(0, panels.length - 1);
-      const mobile = width < 700;
-      const viewHeight =
-        2 *
-        Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2) *
-        (camera.position.z - 3.1);
-      const centeredScale = mobile
-        ? Math.min(
-            (viewHeight * 0.32) / 2.6,
-            (viewHeight * camera.aspect * 0.86) / 5.5,
-          )
-        : (viewHeight * 0.35) / 2.6;
+      const entryProgress = THREE.MathUtils.smoothstep(workEntry, 0.2, 0.86);
+      const panelExit = THREE.MathUtils.clamp(workExit, 0, 1);
       for (const panel of panels) {
         const index = panel.userData.baseIndex as number;
-        const x = index - center;
-        const rad = x;
+        const normalizedOffset = index - center;
+        const x = normalizedOffset * 0.68 + (1 - entryProgress) * 0.85;
         panel.position.set(
-          Math.sin(rad) * (mobile ? 4.1 : 4.9) + (mobile ? 0 : 0.65),
-          (mobile ? 1.5 : 0.75) -
-            x * (mobile ? 0.85 : 1.05) +
-            (1 - workMix) * 2.8,
-          Math.cos(rad) * 2.6 + 0.5 - transitionMix * 1.5,
+          Math.sin(x) * 11 - panelExit * 11,
+          -x + (mobile ? -0.18 : 0),
+          Math.cos(x) * 5 - 4.2 - transitionMix * 1.5,
         );
-        panel.rotation.set(0, rad * 0.58, 0);
-        const scale =
-          centeredScale * (0.82 + 0.18 * (1 - Math.min(1, Math.abs(x))));
+        panel.rotation.set(0, x * 0.6, 0);
+        const scale = 0.98 + 0.4 * (1 - Math.min(1, Math.abs(normalizedOffset)));
         panel.scale.setScalar(scale);
-        const alpha = THREE.MathUtils.smoothstep(2.5 - Math.abs(x), 0, 1.2);
-        const panelOpacity = alpha * workMix;
-        (panel.material as THREE.ShaderMaterial).uniforms.uOpacity.value =
-          panelOpacity;
+        const edge = 1 - THREE.MathUtils.smoothstep(Math.abs(normalizedOffset), 0.8, 2.5);
+        const panelOpacity = edge * entryProgress * (1 - panelExit) * workMix;
+        const material = panel.material as THREE.ShaderMaterial;
+        material.uniforms.uOpacity.value = panelOpacity;
+        material.uniforms.uMedia.value = index === selectedIndex ? selectedTexture : posters[index];
+        material.uniforms.uMediaMix.value =
+          index === selectedIndex && videoReady ? 1 : 0;
+        material.uniforms.uMediaIsVideo.value =
+          index === selectedIndex && selectedTexture === selectedVideo?.texture ? 1 : 0;
+        material.uniforms.uMediaAspect.value = mediaAspect;
         panel.userData.opacity = panelOpacity;
         panel.visible = panelOpacity > 0.005;
       }
@@ -736,13 +863,13 @@ export default function HeroScene({
           .length,
       );
 
-      const drift = 1 - transitionMix;
+      const drift = (1 - Math.max(light, portalPulse)) * (1 - contactMix);
       const desiredX = reducedRef.current
         ? 0
-        : pointer.ndcX * 0.82 * drift + cameraDive * 0.8;
+        : pointer.ndcX * 0.82 * drift + cameraApproach * 0.8 - portalPulse * 1.2;
       const desiredY = reducedRef.current ? 0 : pointer.ndcY * 0.64 * drift;
       const cameraTargetZ =
-        (mobile ? 11.8 : 10.5) - cameraDive * (mobile ? 3.4 : 4.6);
+        (mobile ? 11.8 : 10.5) - cameraApproach * (mobile ? 3.4 : 4.6) - portalPulse * 1.2;
       camera.position.z +=
         (cameraTargetZ - camera.position.z) * Math.min(1, dt * 2.5);
       camera.position.x += (desiredX - camera.position.x) * Math.min(1, dt * 3);
@@ -750,20 +877,22 @@ export default function HeroScene({
       camera.lookAt(0, 0, 0);
       const letterScale =
         1.12 - workMix * 0.08 - servicesMix * 0.05 - transitionMix * 0.06;
-      letter.scale.setScalar((mobile ? 1.2 : 1.4) * (letterScale / 1.12));
-      letter.rotation.x = motion.rotationX;
-      letter.rotation.y = motion.rotationY;
+      const finaleShift = THREE.MathUtils.smoothstep(finaleProgress, 0, 0.45);
+      letter.scale.setScalar((mobile ? 1.2 : 1.4) * (letterScale / 1.12) * (1 - contactMix * 0.42) * (1 - contactMix * finaleShift * (mobile ? 0.73 : 0.30)));
+      letter.rotation.x = motion.rotationX * (1 - contactMix);
+      letter.rotation.y = motion.rotationY * (1 - palePhase) * (1 - contactMix) + portalPulse * Math.PI * 0.5;
       holder!.dataset.rotationX = motion.rotationX.toFixed(3);
       holder!.dataset.rotationY = motion.rotationY.toFixed(3);
       holder!.dataset.reveal = reveal.toFixed(3);
       const targetLetterY =
-        (mobile ? 0.55 : 0) - workMix * 0.12 - transitionMix * 0.24;
+        (mobile ? 0.55 : 0) - workMix * 0.12 - palePhase * 0.24 + contactMix * (1.3 + finaleShift * 0.25);
       letter.position.y +=
         (targetLetterY - letter.position.y) * Math.min(1, dt * 2);
+      const closingViewHeight = 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2) * camera.position.z;
       const targetLetterX =
         (mobile ? -0.03 : -0.12) -
-        (!mobile ? servicesMix * 1.98 : 0) +
-        transitionMix * 0.2;
+        (!mobile ? servicesMix * (1 - contactMix) * 1.98 : 0) +
+        palePhase * 0.2 - contactMix * finaleShift * closingViewHeight * camera.aspect * 0.178;
       letter.position.x +=
         (targetLetterX - letter.position.x) * Math.min(1, dt * 3);
       rMaterial.uniforms.uScene.value = backgroundTarget.texture;
@@ -776,28 +905,45 @@ export default function HeroScene({
       rMaterial.uniforms.uTime.value = now * 0.001;
       rMaterial.uniforms.uLight.value = light;
       rMaterial.uniforms.uReveal.value = reveal;
-      rMaterial.uniforms.uServices.value = servicesMix;
-      rMaterial.uniforms.uContact.value = contactMix;
+      rMaterial.uniforms.uServices.value = servicesMix * (1 - contactMix);
+      rMaterial.uniforms.uContact.value = contactMix * THREE.MathUtils.smoothstep(finaleProgress, 0.78, 1);
       rMaterial.uniforms.uDepthScale.value =
-        0.035 + 0.965 * THREE.MathUtils.smoothstep(reveal, 0.08, 0.85);
+        (0.035 + 0.965 * THREE.MathUtils.smoothstep(reveal, 0.08, 0.85)) * (1 - palePhase * 0.97);
       rMaterial.uniforms.uRipple.value =
         Math.sin(reveal * Math.PI) * (0.3 + (1 - reveal) * 0.7);
-      outlineMaterial.opacity = light * 0.9;
-      displayMaterial.uniforms.uOpacity.value = light;
+      outlineMaterial.opacity = light;
+      displayMaterial.uniforms.uOpacity.value =
+        THREE.MathUtils.smoothstep(portalTravel, 0.02, 0.35) *
+        (1 - portalReveal) * (1 - contactMix);
       displayMaterial.uniforms.uTime.value = now * 0.001;
-      const portalAmount = servicesMix * portalMix;
-      serviceMaterial.opacity = portalAmount * (mobile ? 0 : 0.92);
-      servicePortal.visible = !mobile && portalAmount > 0.005;
-      if (panels[0])
-        serviceMaterial.map = (
-          panels[0].material as THREE.ShaderMaterial
-        ).uniforms.uMap.value;
-      contactMat.opacity = contactMix * 0.92;
-      contactPlane.scale.setScalar(0.9 + contactMix * 0.1);
-      letter.visible = contactMix < 0.98;
-      renderer.setRenderTarget(null);
+      const portalAmount = portalReveal * (1 - contactMix);
+      serviceMaterial.uniforms.uOpacity.value = portalAmount * 0.55;
+      serviceMaterial.uniforms.uMap.value = selectedPoster;
+      serviceMaterial.uniforms.uMedia.value = selectedTexture;
+      serviceMaterial.uniforms.uMediaMix.value = 1;
+      serviceMaterial.uniforms.uMediaIsVideo.value = videoReady ? 1 : 0;
+      serviceMaterial.uniforms.uMediaAspect.value = mediaAspect;
+      serviceMaterial.uniforms.uMapAspect.value = selectedPoster?.image?.width && selectedPoster?.image?.height
+        ? selectedPoster.image.width / selectedPoster.image.height
+        : 1200 / 760;
+      servicePortal.visible = portalAmount > 0.005;
+      servicePortal.scale.setScalar(0.8 + portalTravel * (mobile ? 0.6 : 1.25));
+      servicePortal.rotation.y = 0.24 * (1 - portalReveal);
+      contactMat.opacity = 0;
+      letter.visible = true;
+      holder!.dataset.depth = rMaterial.uniforms.uDepthScale.value.toFixed(3);
+      holder!.dataset.finale = finaleProgress.toFixed(3);
+      renderer.setRenderTarget(compositeTarget);
       renderer.clear(true, true, true);
       renderer.render(scene, camera);
+      compositeMaterial.uniforms.uTime.value = now * 0.001;
+      compositeMaterial.uniforms.uAspect.value.set(width / height, 1);
+      compositeMaterial.uniforms.uReveal.value = reveal;
+      compositeMaterial.uniforms.uPortalTravel.value = portalTravel;
+      compositeMaterial.uniforms.uRipple.value = Math.max(Math.sin(reveal * Math.PI), portalPulse);
+      renderer.setRenderTarget(null);
+      renderer.clear(true, true, true);
+      renderer.render(compositeScene, compositeCamera);
       if (firstFrame && !shaderFailed) {
         firstFrame = false;
         holder!.classList.add("scene-ready");
@@ -823,7 +969,12 @@ export default function HeroScene({
       renderer.domElement.removeEventListener("webglcontextlost", lose);
       renderer.domElement.removeEventListener("webglcontextrestored", restore);
       fluid.dispose();
+      mediaCache.forEach((media) => media.dispose());
+      mediaCache.clear();
       backgroundTarget.dispose();
+      compositeTarget.dispose();
+      compositePlane.geometry.dispose();
+      compositeMaterial.dispose();
       cubeTarget.dispose();
       bgGeometry.dispose();
       bgMaterial.dispose();
@@ -849,6 +1000,7 @@ export default function HeroScene({
       for (const texture of loadedTextures) texture.dispose();
       scene.clear();
       bgScene.clear();
+      compositeScene.clear();
       renderer.dispose();
       renderer.domElement.remove();
     };

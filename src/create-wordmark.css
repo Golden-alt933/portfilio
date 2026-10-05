@@ -1,0 +1,30 @@
+.create-wordmark {
+  display: block;
+  width: 100%;
+  overflow: visible;
+  color: #fff;
+}
+
+/* The moving 3D mark occupies the R slot until the final filled lockup resolves. */
+.create-wordmark path[data-letter="R"] {
+  opacity: clamp(0, calc((var(--finale-progress, 0) - 0.78) * 4.55), 1);
+}
+
+.create-wordmark path {
+  --letter-progress: clamp(0, calc(var(--finale-progress, 0) * 2.4 - var(--letter-order) * 0.15), 1);
+  stroke: currentColor;
+  stroke-width: 1.1;
+  stroke-dasharray: 1;
+  stroke-dashoffset: calc(1 - var(--letter-progress));
+  fill: currentColor;
+  fill-opacity: clamp(0, calc((var(--finale-progress, 0) - 0.78) * 4.55), 1);
+  vector-effect: non-scaling-stroke;
+}
+
+[data-portfolio-motion="reduced"] .create-wordmark {
+  --finale-progress: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .create-wordmark { --finale-progress: 1; }
+}

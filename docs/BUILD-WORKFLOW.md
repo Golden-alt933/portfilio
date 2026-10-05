@@ -16,12 +16,16 @@ Workers had separate file ownership. When Luna handed a component over, Sol coul
 
 ## Architecture
 
+The full-sequence refinement uses two GPT-6 Luna workers, one owning scroll geometry/Home and one owning GPU rendering/media. GPT-6.1 Sol independently audits the public source and reviews integration. The main agent owns the full-viewport construction loader, original CREATE artwork, assembly and real-browser checks. No additional worker tier is used. The shared `scene/sequence.ts` forward/inverse mapping keeps card controls, rendering and history restoration on the same physical stops; its regression checks run with `npm test` on Node 22.6 or newer.
+
 - `SceneHost.tsx` owns the renderer lifetime, readiness and shared motion preference. The scene survives project-route changes and pauses while hidden.
 - `ScrollProvider.tsx` owns the single application-scoped Lenis controller and route positioning. GSAP's ticker advances Lenis and its scroll event updates ScrollTrigger.
 - `ImmersiveHome.tsx` writes chapter/work progress and continuous scene mixes to `SceneState.ts`. ScrollTrigger timelines animate the body palette and section text; the renderer reads the same scroll contract.
 - `HeroScene.tsx` owns GPU geometry, materials, render targets and pointer raycasts. `scene/FluidField.ts` owns the desktop velocity/pressure field.
 - `MotionUI.tsx` owns loader and text effects. Accessible names remain stable while visual characters change.
 - `content.ts` owns portfolio records and later media URLs. Project templates and the index use the same records.
+- `wordmark.ts` contains original geometric CREATE paths shared by the hero texture and `CreateWordmark.tsx` outro. This is newly drawn artwork; the reference wordmark's font origin is unconfirmed.
+- `scene/media.ts` owns lazily activated muted direct-MP4 textures and cleanup. The selected project texture can be reused by the curved foreground card and dim background.
 
 ## Usage discipline
 
@@ -29,4 +33,4 @@ The workers received bounded tasks and returned compact handoffs. Sol took over 
 
 See [implementation status](STATUS.md) for observed browser checks and remaining release work. Real project media, physical-phone measurements and production-host checks remain separate from source/build verification.
 
-The new source observations and the distinction between the mission wipe and service-side projection are recorded in [motion refinement](MOTION-REFINEMENT.md).
+The full loader-to-outro source observations, font distinctions and transition constants are recorded in [sequence audit](SEQUENCE-AUDIT.md); [motion refinement](MOTION-REFINEMENT.md) retains the earlier findings.

@@ -13,6 +13,14 @@ import Lenis from "lenis";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useSceneHost } from "./SceneHost";
+import { projects } from "./content";
+import {
+  WORK_CARD_STEP_SCREENS,
+  WORK_ENTRY_SCREENS,
+  workCardOffset,
+  workLastStopOffset,
+  workOffsetAtProgress,
+} from "./scene/sequence";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -31,6 +39,10 @@ export function useSmoothScroll() {
 /** One application-scoped Lenis instance, driven by GSAP's shared ticker. */
 export default function ScrollProvider({ children }: { children: ReactNode }) {
   const { reducedMotion, lastWorkProgress } = useSceneHost();
+  const reducedMotionRef = useRef(reducedMotion);
+  useLayoutEffect(() => {
+    reducedMotionRef.current = reducedMotion;
+  }, [reducedMotion]);
   const location = useLocation();
   const navigationType = useNavigationType();
   const lenisRef = useRef<Lenis | null>(null);
@@ -38,6 +50,7 @@ export default function ScrollProvider({ children }: { children: ReactNode }) {
   const previousPath = useRef(location.pathname);
   const trackingKey = useRef(location.key);
   const pendingPositionRestore = useRef(false);
+  const resetWheelGesture = useRef<() => void>(() => {});
   const positionByKey = useRef(new Map<string, number>());
   const initialKey = useRef(location.key);
   useLayoutEffect(() => {
@@ -50,11 +63,12 @@ export default function ScrollProvider({ children }: { children: ReactNode }) {
 
   const scrollTo = useCallback<ScrollApi["scrollTo"]>(
     (target, options = {}) => {
+      resetWheelGesture.current();
       const top =
         typeof target === "number"
           ? target
           : target.getBoundingClientRect().top + window.scrollY;
-      if (reducedMotion || !lenisRef.current) {
+      if (reducedMotionRef.current || !lenisRef.current) {
         window.scrollTo({ top, behavior: "instant" });
       } else {
         lenisRef.current.scrollTo(top, {
@@ -64,7 +78,7 @@ export default function ScrollProvider({ children }: { children: ReactNode }) {
         });
       }
     },
-    [reducedMotion],
+    [],
   );
 
   useEffect(() => {
@@ -83,22 +97,183 @@ export default function ScrollProvider({ children }: { children: ReactNode }) {
         window.history.scrollRestoration = previousRestoration;
       };
     }
-    const lenis = new Lenis({
+    let wheelGestureTimer = 0;
+    let wheelGestureActive = false;
+    let wheelGestureDirection = 0;
+    let wheelGestureStart = 0;
+    let wheelGestureStartIndex = 0;
+    let wheelGestureStartedInEntry = false;
+    let wheelGestureEnteringFromBelow = false;
+    const resetWheel = () => {
+      window.clearTimeout(wheelGestureTimer);
+      wheelGestureTimer = 0;
+      wheelGestureActive = false;
+      wheelGestureDirection = 0;
+      wheelGestureStartedInEntry = false;
+      wheelGestureEnteringFromBelow = false;
+    };
+    resetWheelGesture.current = resetWheel;
+    let lenis: Lenis | null = null;
+    const virtualScroll = (data: {
+      deltaX: number;
+      deltaY: number;
+      event: WheelEvent | TouchEvent;
+    }) => {
+      if (data.event.type !== "wheel" || window.innerWidth < 900) return true;
+      if (
+        data.event.ctrlKey ||
+        Math.abs(data.deltaX) > Math.abs(data.deltaY)
+      ) {
+        resetWheel();
+        return true;
+      }
+      if (document.body.style.overflow === "hidden") {
+        resetWheel();
+        return true;
+      }
+      const track = document.getElementById("work");
+      if (!track || !lenis) return true;
+      const sectionTop = track.getBoundingClientRect().top + window.scrollY;
+      const sectionEnd = sectionTop + track.offsetHeight - window.innerHeight;
+      const currentTarget = lenis.targetScroll;
+      const currentScroll = lenis.scroll;
+      const direction = Math.sign(data.deltaY);
+      const enteringFromAbove =
+        direction > 0 &&
+        currentTarget < sectionTop &&
+        currentTarget + data.deltaY >= sectionTop;
+      const enteringFromBelow =
+        direction < 0 &&
+        currentTarget > sectionEnd &&
+        currentTarget + data.deltaY <= sectionEnd;
+      const inTrack =
+        (currentTarget >= sectionTop && currentTarget <= sectionEnd) ||
+        (currentScroll >= sectionTop && currentScroll <= sectionEnd) ||
+        enteringFromAbove ||
+        enteringFromBelow;
+      if (!inTrack) {
+        resetWheel();
+        return true;
+      }
+      if (!direction) return true;
+      const viewport = window.innerHeight;
+      const firstStop = sectionTop + WORK_ENTRY_SCREENS * viewport;
+      const lastStop = workLastStopOffset(
+        sectionTop,
+        viewport,
+        projects.length,
+      );
+      const freshDirection =
+        !wheelGestureActive || wheelGestureDirection !== direction;
+      if (
+        freshDirection &&
+        ((direction < 0 && currentTarget <= firstStop + viewport * 0.1) ||
+          (direction > 0 && currentTarget >= lastStop - viewport * 0.1))
+      ) {
+        resetWheel();
+        return true;
+      }
+      if (!wheelGestureActive || wheelGestureDirection !== direction) {
+        resetWheel();
+        wheelGestureActive = true;
+        wheelGestureDirection = direction;
+        wheelGestureStart = currentTarget;
+        wheelGestureStartedInEntry = currentTarget < firstStop;
+        wheelGestureEnteringFromBelow = enteringFromBelow;
+        const physical =
+          (currentTarget - sectionTop) / viewport - WORK_ENTRY_SCREENS;
+        wheelGestureStartIndex = Math.max(
+          0,
+          Math.min(
+            projects.length - 1,
+            currentTarget < firstStop || enteringFromBelow
+              ? 0
+              : Math.round(physical / WORK_CARD_STEP_SCREENS),
+          ),
+        );
+        if (enteringFromBelow)
+          wheelGestureStartIndex = projects.length - 1;
+      }
+      window.clearTimeout(wheelGestureTimer);
+      wheelGestureTimer = window.setTimeout(() => {
+        const latestTrack = document.getElementById("work");
+        if (!latestTrack || !lenis || document.body.style.overflow === "hidden") {
+          resetWheel();
+          return;
+        }
+        const latestTop = latestTrack.getBoundingClientRect().top + window.scrollY;
+        const latestOffset = lenis.targetScroll - latestTop;
+        const latestLastStop = workLastStopOffset(
+          latestTop,
+          window.innerHeight,
+          projects.length,
+        );
+        const latestIndex = Math.round(
+          (latestOffset / window.innerHeight - WORK_ENTRY_SCREENS) /
+            WORK_CARD_STEP_SCREENS,
+        );
+        if (
+          lenis.targetScroll < latestTop ||
+          lenis.targetScroll > latestTop + latestTrack.offsetHeight - window.innerHeight ||
+          latestOffset > latestLastStop - latestTop + window.innerHeight * 0.25 ||
+          Math.abs(latestIndex - wheelGestureStartIndex) > 1 ||
+          (wheelGestureDirection < 0 && wheelGestureStartIndex === 0) ||
+          (wheelGestureDirection > 0 && wheelGestureStartIndex === projects.length - 1)
+        ) {
+          resetWheel();
+          return;
+        }
+        let targetIndex = wheelGestureStartIndex + wheelGestureDirection;
+        if (wheelGestureEnteringFromBelow)
+          targetIndex = projects.length - 1;
+        else if (wheelGestureDirection > 0 && wheelGestureStartedInEntry)
+          targetIndex = 0;
+        targetIndex = Math.max(0, Math.min(projects.length - 1, targetIndex));
+        resetWheel();
+        lenis.scrollTo(
+          workCardOffset(
+            targetIndex,
+            latestTop,
+            window.innerHeight,
+            projects.length,
+          ),
+          { duration: 0.68 },
+        );
+      }, 240);
+      const limit = wheelGestureEnteringFromBelow && direction < 0
+        ? lastStop
+        : wheelGestureStartedInEntry && direction > 0
+          ? firstStop
+          : wheelGestureStart + direction * WORK_CARD_STEP_SCREENS * viewport;
+      const remaining = limit - currentTarget;
+      const amount = Math.abs(data.deltaY);
+      if (remaining * direction <= 0.5) {
+        data.event.preventDefault();
+        return false;
+      }
+      if (amount > Math.abs(remaining)) {
+        data.deltaY = direction * Math.abs(remaining);
+      }
+      return true;
+    };
+    const lenisInstance = new Lenis({
       autoRaf: false,
       lerp: 0.08,
       smoothWheel: true,
       syncTouch: false,
       anchors: false,
       wheelMultiplier: 0.9,
+      virtualScroll,
     });
-    lenisRef.current = lenis;
+    lenis = lenisInstance;
+    lenisRef.current = lenisInstance;
     const onScroll = () => {
       if (!pendingPositionRestore.current)
-        positionByKey.current.set(trackingKey.current, lenis.scroll);
+        positionByKey.current.set(trackingKey.current, lenisInstance.scroll);
       ScrollTrigger.update();
     };
-    lenis.on("scroll", onScroll);
-    const tick = (time: number) => lenis.raf(time * 1000);
+    lenisInstance.on("scroll", onScroll);
+    const tick = (time: number) => lenisInstance.raf(time * 1000);
     gsap.ticker.add(tick);
     const onAnchorClick = (event: MouseEvent) => {
       if (
@@ -143,32 +318,43 @@ export default function ScrollProvider({ children }: { children: ReactNode }) {
     };
     window.addEventListener("portfolio:scroll-to", onRouteScroll);
     let locked = document.body.style.overflow === "hidden";
-    if (locked) lenis.stop();
+    if (locked) lenisInstance.stop();
     const lockObserver = new MutationObserver(() => {
       const nextLocked = document.body.style.overflow === "hidden";
       if (nextLocked === locked) return;
       locked = nextLocked;
-      if (locked) lenis.stop();
-      else lenis.start();
+      resetWheel();
+      if (locked) lenisInstance.stop();
+      else lenisInstance.start();
     });
     lockObserver.observe(document.body, {
       attributes: true,
       attributeFilter: ["style"],
     });
     const resize = () => {
-      lenis.resize();
+      resetWheel();
+      lenisInstance.resize();
       ScrollTrigger.refresh();
     };
     window.addEventListener("resize", resize);
+    const resetOnNonWheelInput = () => resetWheel();
+    window.addEventListener("touchstart", resetOnNonWheelInput, { passive: true });
+    window.addEventListener("keydown", resetOnNonWheelInput);
+    window.addEventListener("pointerdown", resetOnNonWheelInput, { passive: true });
     return () => {
+      resetWheel();
+      resetWheelGesture.current = () => {};
       gsap.ticker.remove(tick);
       document.removeEventListener("click", onAnchorClick);
       window.removeEventListener("portfolio:scroll-to", onRouteScroll);
       lockObserver.disconnect();
       window.removeEventListener("resize", resize);
-      lenis.off("scroll", onScroll);
-      lenis.destroy();
-      if (lenisRef.current === lenis) lenisRef.current = null;
+      window.removeEventListener("touchstart", resetOnNonWheelInput);
+      window.removeEventListener("keydown", resetOnNonWheelInput);
+      window.removeEventListener("pointerdown", resetOnNonWheelInput);
+      lenisInstance.off("scroll", onScroll);
+      lenisInstance.destroy();
+      if (lenisRef.current === lenisInstance) lenisRef.current = null;
       window.history.scrollRestoration = previousRestoration;
     };
   }, [reducedMotion, scrollTo]);
@@ -182,6 +368,16 @@ export default function ScrollProvider({ children }: { children: ReactNode }) {
         : undefined;
     pendingPositionRestore.current = true;
     const locate = () => {
+      // Menu cleanup restarts Lenis and resets its animation. Defer animated
+      // navigation until unlock; immediate POP restoration is safe while locked
+      // and must place the hero before the loader starts its GPU handoff.
+      if (navigationType !== "POP" && document.body.style.overflow === "hidden") {
+        secondFrame = requestAnimationFrame(locate);
+        return;
+      }
+      // Route DOM has changed. Refresh the limit before restoring a long gallery
+      // position, otherwise Lenis clamps it to the shorter project page.
+      lenisRef.current?.resize();
       trackingKey.current = location.key;
       const complete = () => {
         pendingPositionRestore.current = false;
@@ -214,11 +410,14 @@ export default function ScrollProvider({ children }: { children: ReactNode }) {
           id === "work" &&
           lastWorkProgress.current !== null
         ) {
-          const travel = Math.max(1, target.offsetHeight - window.innerHeight);
           scrollTo(
             target.getBoundingClientRect().top +
               window.scrollY +
-              lastWorkProgress.current * travel,
+              workOffsetAtProgress(
+                lastWorkProgress.current,
+                window.innerHeight,
+                projects.length,
+              ),
             { immediate: true, force: true },
           );
         } else if (target)

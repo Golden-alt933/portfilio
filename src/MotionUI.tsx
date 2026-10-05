@@ -5,6 +5,7 @@ import {
   useState,
   type ElementType,
 } from "react";
+import { createPortal } from "react-dom";
 import gsap from "gsap";
 import "./motion-ui.css";
 
@@ -171,7 +172,7 @@ type IntroLoaderProps = {
 };
 
 const LOADER_MAX_WAIT_MS = 8_000;
-const DRAW_MIN_MS = 1_000;
+const DRAW_MIN_MS = 1_500;
 
 /** Original SVG construction reveal; waits for scene readiness, with an 8s escape hatch. */
 export function IntroLoader({
@@ -236,6 +237,8 @@ export function IntroLoader({
     }
 
     const grid = element.querySelectorAll<SVGElement>(".intro-loader__draft");
+    const sweeps = element.querySelectorAll<SVGPathElement>(".intro-loader__sweep");
+    const field = element.querySelector<SVGSVGElement>(".intro-loader__field");
     const strokes = element.querySelectorAll<SVGPathElement>(
       ".intro-loader__r-stroke",
     );
@@ -259,7 +262,7 @@ export function IntroLoader({
     const setStrokeProgress = (stroke: SVGGeometryElement) => {
       const matrix = stroke.getScreenCTM();
       const scale =
-        stroke.getAttribute("vector-effect") === "non-scaling-stroke" && matrix
+        getComputedStyle(stroke).vectorEffect === "non-scaling-stroke" && matrix
           ? Math.sqrt(Math.abs(matrix.a * matrix.d - matrix.b * matrix.c))
           : 1;
       const length = stroke.getTotalLength() * scale;
@@ -268,11 +271,28 @@ export function IntroLoader({
     };
     setStrokeProgress(frame!);
     strokes.forEach(setStrokeProgress);
+    sweeps.forEach((stroke, index) => {
+      setStrokeProgress(stroke);
+      gsap.set(stroke, {
+        autoAlpha: 0,
+        x: stroke.dataset.axis === "x" ? (index % 2 ? -700 : 700) : 0,
+        y: stroke.dataset.axis === "y" ? (index % 2 ? -450 : 450) : 0,
+      });
+    });
     gsap.set(letterFill, { autoAlpha: 0 });
     gsap.set(element, { autoAlpha: 1, pointerEvents: "auto" });
 
     drawingTimeline = gsap.timeline();
     drawingTimeline
+      .to(sweeps, {
+        autoAlpha: 0.85,
+        x: 0,
+        y: 0,
+        strokeDashoffset: 0,
+        duration: 1.55,
+        stagger: { each: 0.035, from: "center" },
+        ease: "power2.inOut",
+      }, 0)
       .to(
         grid,
         { autoAlpha: 0.42, duration: 0.55, stagger: 0.025, ease: "power1.out" },
@@ -302,6 +322,14 @@ export function IntroLoader({
     timeline = gsap.timeline({ paused: true, onComplete: finish });
     timeline
       .to(slogan, { autoAlpha: 1, duration: 0.3, ease: "power1.out" }, 0)
+      .to(field, { scale: 1.08, transformOrigin: "50% 50%", duration: 2.5, ease: "sine.inOut" }, 0)
+      .to(sweeps, {
+        strokeDashoffset: (_: number, stroke: SVGPathElement) => -stroke.getTotalLength(),
+        autoAlpha: 0,
+        duration: 1.05,
+        stagger: { each: 0.015, from: "edges" },
+        ease: "power2.inOut",
+      }, 1.05)
       .to(
         strokes,
         {
@@ -355,13 +383,13 @@ export function IntroLoader({
       window.clearTimeout(deadline);
       drawingTimeline?.kill();
       timeline?.kill();
-      gsap.killTweensOf([element, grid, frame, strokes, letterFill, slogan]);
+      gsap.killTweensOf([element, grid, sweeps, field, frame, strokes, letterFill, slogan]);
     };
   }, [failed, reducedMotion]);
 
   // `ready` is a gate only; the small poll above observes its latest value without
   // restarting the SVG timeline when scene readiness changes.
-  return (
+  return createPortal(
     <div
       ref={root}
       className="intro-loader"
@@ -369,6 +397,18 @@ export function IntroLoader({
       aria-label="Constructing the portfolio mark"
       aria-live="polite"
     >
+      <svg className="intro-loader__field" viewBox="0 0 1600 900" preserveAspectRatio="none" fill="none" aria-hidden="true">
+        {[110, 225, 410, 450, 490, 675, 790].map((y) => (
+          <path key={`h${y}`} className="intro-loader__sweep" data-axis="x" d={`M-300 ${y}H1900`} />
+        ))}
+        {[140, 400, 690, 800, 910, 1200, 1460].map((x) => (
+          <path key={`v${x}`} className="intro-loader__sweep" data-axis="y" d={`M${x} -200V1100`} />
+        ))}
+        <path className="intro-loader__sweep" data-axis="x" d="M-100 950L1450 -150M-60 950L1490 -150M-20 950L1530 -150" />
+        <path className="intro-loader__sweep" data-axis="y" d="M100 -150L1500 1050M125 -150L1525 1050" />
+        <path className="intro-loader__sweep" d="M510 450A290 290 0 1 1 1090 450A290 290 0 1 1 510 450M615 450A185 185 0 1 1 985 450" />
+        <path className="intro-loader__sweep" data-axis="x" d="M0 520H430M0 528H430M0 536H430M1170 372H1600M1170 380H1600M1170 388H1600" />
+      </svg>
       <div className="intro-loader__stage" aria-hidden="true">
         <svg className="intro-loader__svg" viewBox="0 0 240 240" fill="none">
           <g
@@ -418,6 +458,7 @@ export function IntroLoader({
           DESIGN · CODE · MOTION
         </span>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
