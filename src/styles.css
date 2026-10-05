@@ -1,19 +1,17 @@
-@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;450;500;550;600;650;700&family=Space+Mono:wght@400;700&display=swap");
-
 :root {
-  font-family: "DM Sans", sans-serif;
-  color: #f2f3f3;
-  background: #090a0b;
+  font-family: "Inter", sans-serif;
+  color: #ffffff;
+  background: #000000;
   font-synthesis: none;
   --muted: #989b9f;
   --line: #282b2f;
-  --accent: #91e8f4;
+  --accent: #d7ff00;
 }
 * {
   box-sizing: border-box;
 }
 html {
-  scroll-behavior: smooth;
+  scroll-behavior: auto;
   scroll-padding-top: 100px;
 }
 body {
@@ -100,7 +98,7 @@ button {
 .nav span {
   color: #8b8e92;
   font:
-    10px "Space Mono",
+    10px "IBM Plex Mono",
     monospace;
 }
 .nav a:hover {
@@ -152,7 +150,7 @@ button {
   position: absolute;
   top: 145px;
   font:
-    11px "Space Mono",
+    11px "IBM Plex Mono",
     monospace;
   color: var(--muted);
   letter-spacing: 0.09em;
@@ -222,7 +220,7 @@ button {
 .crosshair {
   position: absolute;
   font:
-    24px "Space Mono",
+    24px "IBM Plex Mono",
     monospace;
   color: #92979f;
 }
@@ -243,7 +241,7 @@ button {
 .tiny-label {
   display: block;
   font:
-    11px "Space Mono",
+    11px "IBM Plex Mono",
     monospace;
   letter-spacing: 0.025em;
 }
@@ -289,7 +287,7 @@ button {
 }
 .reel-number {
   margin-left: auto;
-  font: 10px "Space Mono";
+  font: 10px "IBM Plex Mono";
   color: #959a9f;
 }
 .hero-bottom {
@@ -301,7 +299,7 @@ button {
   align-items: center;
   justify-content: space-between;
   font:
-    10px "Space Mono",
+    10px "IBM Plex Mono",
     monospace;
   color: #aaafb4;
   letter-spacing: 0.06em;
@@ -325,7 +323,7 @@ button {
   align-items: center;
   justify-content: space-between;
   font:
-    11px "Space Mono",
+    11px "IBM Plex Mono",
     monospace;
   color: #9da1a6;
   letter-spacing: 0.03em;
@@ -360,7 +358,7 @@ button {
 .feature-label {
   display: flex;
   justify-content: space-between;
-  font: 10px "Space Mono";
+  font: 10px "IBM Plex Mono";
   color: #90969c;
   margin-bottom: 17px;
 }
@@ -395,7 +393,7 @@ button {
   inset: 8% 7%;
 }
 .feature-type > span {
-  font: 12px "Space Mono";
+  font: 12px "IBM Plex Mono";
 }
 .feature-type strong {
   display: block;
@@ -413,7 +411,7 @@ button {
 .feature-baseline {
   display: flex;
   justify-content: space-between;
-  font: 11px "Space Mono";
+  font: 11px "IBM Plex Mono";
   margin-top: 6%;
 }
 .feature-play {
@@ -475,7 +473,7 @@ button {
   letter-spacing: -0.055em;
 }
 .count {
-  font: 14px "Space Mono";
+  font: 14px "IBM Plex Mono";
   vertical-align: super;
   margin-left: 16px;
   color: #8b9299;
@@ -516,13 +514,13 @@ button {
   position: absolute;
   left: 22px;
   top: 20px;
-  font: 11px "Space Mono";
+  font: 11px "IBM Plex Mono";
   color: #9299a3;
 }
 .preview-caption {
   position: absolute;
   bottom: 20px;
-  font: 10px "Space Mono";
+  font: 10px "IBM Plex Mono";
   color: #9199a2;
 }
 .project-card:hover .project-preview {
@@ -619,11 +617,11 @@ button {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font: 10px "Space Mono";
+  font: 10px "IBM Plex Mono";
   color: #9ca2aa;
 }
 .site-footer .brand {
-  font-family: "DM Sans";
+  font-family: "Inter";
   font-size: 32px;
   color: #fff;
 }
@@ -667,7 +665,7 @@ button {
   font: italic 1em Georgia;
 }
 .case-preview > span {
-  font: 10px "Space Mono";
+  font: 10px "IBM Plex Mono";
   margin-top: 30px;
 }
 .case-body {
@@ -1026,7 +1024,7 @@ button {
   gap: 9px;
 }
 .filters button span {
-  font: 10px "Space Mono";
+  font: 10px "IBM Plex Mono";
   color: #737b86;
 }
 .filters button[aria-pressed="true"] {
@@ -1070,7 +1068,7 @@ button {
   right: 28px;
   display: flex;
   justify-content: space-between;
-  font: 9px "Space Mono";
+  font: 9px "IBM Plex Mono";
   gap: 20px;
 }
 .art-top {
@@ -1137,7 +1135,7 @@ button {
 }
 .code-fragment {
   margin-top: 22px;
-  font: 10px "Space Mono";
+  font: 10px "IBM Plex Mono";
   line-height: 1.8;
   opacity: 0.7;
   display: flex;
@@ -1192,7 +1190,7 @@ button {
   color: #a5adb6 !important;
 }
 .media-caption {
-  font: 11px "Space Mono";
+  font: 11px "IBM Plex Mono";
   color: #929ca8;
   margin-top: 16px;
   line-height: 1.6;
@@ -1207,7 +1205,7 @@ button {
   padding: 28px 0;
 }
 .project-facts span {
-  font: 10px "Space Mono";
+  font: 10px "IBM Plex Mono";
   color: #8f9aa6;
 }
 .project-facts p {
@@ -1231,7 +1229,7 @@ button {
   border-top: 1px solid var(--line);
 }
 .next-project > span {
-  font: 11px "Space Mono";
+  font: 11px "IBM Plex Mono";
   color: #8f9aa6;
 }
 .next-project h2 {
@@ -1431,7 +1429,7 @@ button {
   gap: 10px;
   color: #afb8c3;
   font:
-    10px "Space Mono",
+    10px "IBM Plex Mono",
     monospace;
   letter-spacing: 0.04em;
 }

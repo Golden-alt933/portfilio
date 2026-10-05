@@ -1,6 +1,6 @@
 # R — Frame & Function
 
-A portfolio for video editing and creative development, inspired by the spatial presentation of alche.studio. Uses an original extruded R, restrained chrome materials, responsive typography and motion.
+A portfolio for video editing and creative development, based on the rendering and interaction findings in the alche.studio audit. An original R sits inside a responsive WebGL scene, with refracted typography, pointer distortion and a diagonal track of curved project windows.
 
 ## Run locally
 
@@ -13,7 +13,11 @@ Open the local URL printed by Vite. `npm run build` runs TypeScript checking and
 
 ## Stack
 
-React, TypeScript, Vite, Three.js, GSAP and React Router. The procedural R and environment are authored in code; there are no copied Alche assets.
+React, TypeScript, Vite, Three.js, GSAP, Lenis and React Router. The R, background patterns, construction loader and sample posters are authored locally. Archived reference screenshots are documentation, not application assets.
+
+The scene samples a background render target for eight-tap R refraction, adds a studio cube reflection, and bends the project posters across subdivided 3D panels. A small GPU velocity/pressure solve drives desktop pointer distortion. One application-level Lenis controller owns smooth scrolling with LERP and route positioning; reduced motion uses native scrolling and static artwork. GSAP ScrollTrigger scrubs the body palette and staggered text reveals. Continuous scene values connect the rising card exit, camera approach, rotating R, and pale background wipe.
+
+The interface uses locally served IBM Plex Mono, Google Sans Code and Inter. Inter is a licensed substitute for the reference's Acumin headings. Hover scrambling, rolling contact labels, an SVG construction loader and a separate scene reveal reproduce the reference's interaction vocabulary with original content.
 
 ## Content status
 
@@ -27,4 +31,8 @@ Instagram links can serve as outbound links or embeds when the post permits embe
 
 ## Reference audit
 
-[Alche technical audit](docs/ALCHE-AUDIT.md) documents the deployed reference's shaders, pointer response, loader, scroll snapping, typography and hover interactions. Reference screenshots and asset hashes are stored as documentation in `docs/alche-reference/`; they are not application assets. The audit also identifies the rendering and scroll changes needed beyond the current foundation.
+[Alche technical audit](docs/ALCHE-AUDIT.md) documents the deployed reference's shaders, pointer response, loader, scroll snapping, typography and hover interactions. Reference screenshots and asset hashes are stored in `docs/alche-reference/`. [Implementation status](docs/STATUS.md) records what this portfolio implements and what still needs real media or device validation.
+
+[Motion refinement](docs/MOTION-REFINEMENT.md) records the live background and transition findings. [Build workflow](docs/BUILD-WORKFLOW.md) describes the bounded Luna workers and Sol integration review.
+
+This is an adaptation of the reference's mechanisms and composition, with an original R and portfolio copy. It does not claim pixel-for-pixel parity with Alche's proprietary geometry, imagery, fonts or animation assets.

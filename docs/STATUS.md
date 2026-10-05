@@ -1,38 +1,39 @@
-# Implementation status — 4 October 2026
+# Implementation status — 5 October 2026
 
 ## Built
 
-- Original beveled 3D R, procedural chrome surface, desktop pointer response and scroll rotation.
-- Dark grid environment, editorial typography and responsive hero.
-- Scroll transition into a featured project and section reveals.
-- All / Video editing / Coding filters with live result announcements.
-- Six typed sample records and individual case-study URLs, with next-project navigation.
-- MP4 playback, click-to-load Instagram embed support and optional showreel dialog.
-- Responsive navigation, profile/contact configuration and page-specific titles/descriptions.
-- Reduced-motion support, visitor motion toggle and static R fallback.
+- Original beveled R with scene-buffer chromatic refraction, studio reflections, pointer response, and scroll-linked rotation.
+- Dark procedural background with slowly cycling contour, blue/lilac, and violet/cyan/orange tile patterns, staggered UV shifts and blackouts, curved grid, and desktop GPU velocity distortion.
+- Construction loader using the same R contour as the mesh; readiness gate, scroll lock, overlapping radial lens reveal, progressive depth, and bounded fallback.
+- One global Lenis provider with LERP .08, driven by GSAP's ticker. It owns anchor movement, menu locking, route positioning, and history restoration.
+- GSAP ScrollTrigger progress and scrubbed translate-y text staggers; one body palette timeline uses the same continuous light mix as the GPU scene.
+- Six curved project cards on a diagonal 3D track. The last card remains visible at its stop; cards rise and recede while the camera approaches the R and the pale scene wipes upward. Reverse scroll reverses these values.
+- Pale mission/vision scenes with a white outline R and readable dark navigation; service portal and dark contact transition.
+- Hover scrambling, rolling labels, mobile menu, static fallback, filters, and typed case-study pages.
+- MP4 playback and click-to-load Instagram support in the existing media components, ready for supplied content.
 
-## Verified
+## Browser verification
 
-- TypeScript checking and Vite production build passed.
-- Browser rendered one active Three.js canvas and the 3D R.
-- No horizontal overflow at 390px, 768px and 1440px in browser viewport checks.
-- Coding and video filters each returned three matching projects.
-- Mobile menu opened, navigation worked and the menu closed on route change.
-- Coding and editing case-study links opened their own records.
-- An editing case study loaded after direct URL reload.
-- Browser Back/Forward restored the expected routes.
-- Motion-off removed the canvas and showed the static R; motion-on restored rendering.
+Production build verified locally with the final application bundle `index-DGbmBQHr.js` and scene bundle `HeroScene-Zc2PnsyY.js`.
 
-## Still needed
+- TypeScript checking and Vite production build pass; new shaders compile in the browser with renderer status ready and no captured console errors.
+- Construction SVG draws a complete R contour. Loader releases its scroll lock and reveals one active canvas.
+- Desktop project controls reach all six stops. At the last stop, work visibility remains 1.
+- A real canvas click on the fifth foreground panel opens Interactive experiment. Browser Back restores progress .800 at y=3600; Forward and the in-app Back to work link also restore that card.
+- The renderer stays mounted and pauses on project routes; returning home keeps one canvas and does not repeat the loader.
+- Intermediate transition values were observed at y=4644: work visibility .575, pale mix .232, body RGB(57,60,59), and mission title translate-y 23.04px. Reverse scrolling produces intermediate values again rather than jumping to a chapter flag.
+- Mission reaches pale mix 1 at y=5040, with black header navigation. Services reaches service mix 1 and pale mix 0 at its start.
+- The 390px mobile hero fits without horizontal overflow. Menu opening, Escape dismissal, restored scrolling, motion-off, and motion-on work.
+- Motion-off removes the canvas and restores visible mission/vision headings. All / Video / Code filters show 6 / 3 / 3 records.
+- An editing case study loads after direct URL reload without initializing the GPU scene. Its title and sample content are correct.
 
-- Display name, contact email and chosen social profiles.
-- Real editing media and coding projects, including contribution and tools.
-- Actual Instagram embed availability and actual MP4 playback checks after media is supplied.
-- Physical phone performance, measured performance budgets and production-host routing checks.
-- Production origin, sitemap and pre-rendering for reliable crawler/social metadata before release.
+Screenshots were saved in the workspace's `work/portfolio-validation` directory. These checks verify behavior and composition, not a measured frame-rate budget or pixel-identical reproduction.
 
-The preview is local. No website has been published. The private GitHub repository stores the source and milestone commits. A Three.js chunk-size notice remains in production output; the scene is loaded dynamically, and further optimization should be guided by measured device performance.
+## Content and release work
 
-## Reference fidelity audit
+- Display name, contact email, chosen social profiles, real editing media, and actual coding projects are still needed.
+- Instagram availability and actual MP4 playback must be checked after media is supplied. Public reel links can be embedded when allowed; original MP4s give more control over presentation.
+- Physical-phone performance, WebGL context-loss recovery, production-host routing, crawler metadata, and social previews remain unverified.
+- Vite reports a 515.9 kB Three.js vendor chunk. The scene loads dynamically; optimize further against measured device performance.
 
-[The deployed Alche audit](ALCHE-AUDIT.md) and twelve reference screenshots are archived. Source evidence confirms a custom scene-buffer refraction shader, GPU fluid velocity distortion, curved 3D project panels, and Lenis plus ScrollTrigger snapping. The current R implementation uses a simpler material and scroll treatment. Those deeper mechanisms remain implementation work; this documentation milestone does not claim visual or behavioral parity.
+The preview is local and no website has been published. The private GitHub repository stores the implementation. The new source evidence is in [motion refinement](MOTION-REFINEMENT.md), and the larger archive is in [Alche audit](ALCHE-AUDIT.md). The portfolio uses original assets and an Inter substitute for the reference's Acumin headings; it does not claim exact parity with Alche's geometry, media, or randomized frames.

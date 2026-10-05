@@ -1,0 +1,1154 @@
+.immersive-home {
+  --ih-ink: #f5f5f2;
+  --ih-dim: #a4a6a5;
+  --ih-muted: #777b79;
+  --ih-line: #ffffff24;
+  --ih-lime: #d7ff00;
+  --ih-mono: var(--font-mono, "Space Mono", monospace);
+  --ih-sans: var(--font-sans, "Inter", sans-serif);
+  position: relative;
+  isolation: isolate;
+  background: transparent;
+  color: var(--ih-ink);
+  overflow: clip;
+  font-family: var(--ih-sans);
+}
+.immersive-home button,
+.immersive-home a {
+  -webkit-tap-highlight-color: transparent;
+}
+.immersive-home a {
+  color: inherit;
+}
+.immersive-home.scene-ready {
+  z-index: 1;
+  background: transparent;
+}
+.immersive-home button:focus-visible,
+.immersive-home a:focus-visible {
+  outline: 2px solid var(--ih-lime);
+  outline-offset: 5px;
+}
+.immersive-mono {
+  font: 10px/1.5 var(--ih-mono);
+  letter-spacing: 0.08em;
+}
+.immersive-screen,
+.immersive-sticky {
+  position: relative;
+  min-height: 100svh;
+  height: 100svh;
+}
+.immersive-screen {
+  padding: 146px 5vw 52px;
+  overflow: hidden;
+}
+.immersive-screen > .immersive-index {
+  top: 106px;
+}
+.immersive-sticky > .immersive-index {
+  top: 106px;
+}
+.immersive-index {
+  position: absolute;
+  z-index: 4;
+  left: 5vw;
+  right: 5vw;
+  top: 30px;
+  display: flex;
+  justify-content: space-between;
+  color: #b9bcb9;
+}
+.immersive-index > :last-child {
+  text-align: right;
+}
+.immersive-hero {
+  background: radial-gradient(ellipse at 50% 35%, #272c3245, transparent 64%);
+}
+.immersive-wordmark {
+  position: fixed;
+  z-index: 1;
+  left: 50%;
+  top: 43%;
+  width: 100%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  pointer-events: none;
+  color: #f1f2f0;
+  white-space: nowrap;
+  opacity: 0.8;
+  transition: opacity 0.65s ease;
+}
+.immersive-wordmark > span {
+  display: block;
+  font-size: clamp(100px, 19vw, 280px);
+  line-height: 0.78;
+  font-weight: 650;
+  letter-spacing: -0.095em;
+  opacity: 0.14;
+}
+.immersive-wordmark > b {
+  position: absolute;
+  left: 50%;
+  top: 51%;
+  display: block;
+  transform: translate(-50%, -49%);
+  font-size: clamp(300px, 54vw, 760px);
+  line-height: 0.8;
+  font-weight: 650;
+  letter-spacing: -0.1em;
+  color: transparent;
+  background: linear-gradient(
+    115deg,
+    #9a9d9e,
+    #f6f7f4 38%,
+    #383e45 49%,
+    #c7cdd0 62%,
+    #45484a
+  );
+  background-clip: text;
+  -webkit-background-clip: text;
+  filter: drop-shadow(0 16px 30px #0006);
+}
+.immersive-hero .immersive-index {
+  top: 104px;
+}
+.immersive-home.scene-ready .immersive-wordmark {
+  opacity: 0;
+}
+body[data-scene-chapter="works"] .immersive-wordmark,
+body[data-scene-chapter="mission"] .immersive-wordmark,
+body[data-scene-chapter="vision"] .immersive-wordmark,
+body[data-scene-chapter="services"] .immersive-wordmark {
+  opacity: 0;
+}
+body[data-scene-chapter="contact"] .immersive-wordmark {
+  opacity: 0.12;
+}
+.immersive-fixed-grain {
+  position: fixed;
+  z-index: 3;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.09;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.92' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.26'/%3E%3C/svg%3E");
+}
+.immersive-hero-note {
+  position: absolute;
+  z-index: 5;
+  right: 5vw;
+  bottom: 11.5%;
+  text-align: right;
+}
+.immersive-hero-note > span {
+  color: #b7bab6;
+}
+.immersive-hero-note p {
+  margin: 14px 0 19px;
+  font-size: clamp(16px, 1.4vw, 20px);
+  line-height: 1.45;
+  letter-spacing: -0.03em;
+}
+.immersive-text-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  border: 0;
+  padding: 0;
+  background: none;
+  color: var(--ih-ink);
+  font: 10px var(--ih-mono);
+  letter-spacing: 0.09em;
+  cursor: pointer;
+}
+.immersive-text-link:hover {
+  color: var(--ih-lime);
+}
+.immersive-scroll-hint {
+  position: absolute;
+  z-index: 5;
+  bottom: 5.2%;
+  left: 5vw;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  color: #a4a6a4;
+}
+.immersive-scroll-hint svg {
+  animation: ih-arrow 1.8s ease-in-out infinite;
+}
+@keyframes ih-arrow {
+  50% {
+    transform: translateY(5px);
+  }
+}
+.immersive-visually-hidden,
+.immersive-work-visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+.immersive-works-track {
+  position: relative;
+  height: calc(100svh * var(--work-count, 6));
+  scroll-margin-top: 0;
+}
+.immersive-sticky {
+  position: sticky;
+  top: 0;
+  height: 100svh;
+  min-height: 100svh;
+  overflow: hidden;
+  background: radial-gradient(ellipse at 50% 45%, #25292d65, transparent 62%);
+}
+.immersive-work-scene {
+  opacity: var(--work-visibility, 1);
+  transform: translateY(calc((1 - var(--work-visibility, 1)) * -22px));
+  display: flex;
+  align-items: center;
+}
+.immersive-work-visual {
+  position: absolute;
+  left: 51%;
+  top: 45%;
+  width: min(42vw, 540px);
+  height: min(57vh, 500px);
+  transform: translate(-50%, -55%) rotate(-3deg);
+  perspective: 1000px;
+  filter: drop-shadow(0 32px 42px #0008);
+  animation: ih-card-in 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+@keyframes ih-card-in {
+  from {
+    opacity: 0;
+    transform: translate(-46%, -49%) rotate(1deg) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -55%) rotate(-3deg) scale(1);
+  }
+}
+.immersive-work-visual .project-art {
+  width: 100%;
+  height: 100%;
+}
+.immersive-media-caption {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 13px);
+  color: #969995;
+  font-size: 9px;
+}
+.immersive-work-footer {
+  position: absolute;
+  z-index: 5;
+  bottom: 8.5%;
+  left: 5vw;
+  right: 5vw;
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+}
+.immersive-work-copy {
+  max-width: 640px;
+  animation: ih-copy-in 0.55s ease both;
+}
+@keyframes ih-copy-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.immersive-work-number {
+  color: var(--ih-dim);
+  font-family: var(--font-code, var(--ih-mono));
+}
+.immersive-work-title {
+  display: block;
+  width: fit-content;
+  margin-top: 9px;
+  font-size: clamp(36px, 5vw, 72px);
+  line-height: 0.98;
+  font-weight: 500;
+  letter-spacing: -0.065em;
+}
+.immersive-work-copy > p {
+  margin-top: 10px;
+  color: #c1c3c0;
+  font-size: 14px;
+}
+.immersive-tags {
+  display: flex;
+  gap: 6px;
+  margin-top: 13px;
+}
+.immersive-tags span {
+  border: 1px solid #ffffff4c;
+  border-radius: 2px;
+  padding: 5px 9px;
+  color: #c2c4c1;
+  font: 9px var(--font-code, var(--ih-mono));
+}
+.immersive-work-controls {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+}
+.immersive-work-controls > span {
+  margin-right: 8px;
+  color: var(--ih-ink);
+}
+.immersive-work-controls i {
+  color: var(--ih-muted);
+  font-style: normal;
+}
+.immersive-work-controls button {
+  width: 43px;
+  height: 43px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid #ffffff62;
+  color: white;
+  background: #ffffff08;
+  cursor: pointer;
+  transition:
+    color 0.2s,
+    background 0.2s,
+    border-color 0.2s;
+}
+.immersive-work-controls button:hover:not(:disabled) {
+  color: #000;
+  border-color: #fff;
+  background: #fff;
+}
+.immersive-work-controls button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.immersive-progress {
+  position: absolute;
+  left: 5vw;
+  right: 5vw;
+  bottom: 4.7%;
+  height: 1px;
+  background: #ffffff40;
+}
+.immersive-progress span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--ih-lime);
+  transform-origin: left;
+  transition: transform 0.35s ease;
+}
+.immersive-light {
+  color: #161818;
+  background: transparent;
+}
+.immersive-light .immersive-index {
+  color: #575b58;
+}
+.immersive-light .immersive-index > :last-child {
+  color: #747976;
+}
+.immersive-light:before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.27;
+  background-image:
+    linear-gradient(#5e635c1c 1px, transparent 1px),
+    linear-gradient(90deg, #5e635c1c 1px, transparent 1px);
+  background-size: 64px 64px;
+  mask-image: radial-gradient(ellipse at center, #000 12%, transparent 75%);
+}
+.immersive-light > .immersive-index {
+  display: none;
+  top: 53%;
+  left: 0;
+  right: auto;
+}
+.immersive-light > .immersive-index > :last-child {
+  display: none;
+}
+.immersive-statement {
+  position: absolute;
+  z-index: 1;
+  inset: 110px 10vw 25%;
+  transform: none;
+  margin: 0;
+}
+.immersive-statement > .immersive-section-kicker {
+  display: none;
+}
+.immersive-section-kicker {
+  display: block;
+  color: #737873;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+}
+.immersive-statement h2 {
+  position: absolute;
+  left: 0;
+  top: 0;
+  margin: 0;
+  color: transparent;
+  -webkit-text-stroke: 1px #687674;
+  font-size: clamp(54px, 7.5vw, 96px);
+  line-height: 0.9;
+  letter-spacing: -0.07em;
+  font-weight: 500;
+}
+.immersive-statement-copy {
+  position: absolute;
+  right: 0;
+  top: 36%;
+  width: min(44vw, 620px);
+  padding: 0;
+  color: #f4f4f0;
+  text-align: right;
+}
+.immersive-statement-copy h3 {
+  font-size: clamp(27px, 3.7vw, 48px);
+  line-height: 1.15;
+  font-weight: 500;
+  letter-spacing: -0.05em;
+}
+.immersive-statement-copy h3 > span {
+  display: table;
+  margin: 0 0 6px auto;
+  padding: 2px 8px 4px;
+  background: #080b0b;
+}
+.immersive-statement-copy h3 em {
+  color: transparent;
+  -webkit-text-stroke: 1px #f4f4f0;
+  font-style: normal;
+}
+.immersive-statement-copy .immersive-chapter-markers {
+  margin-top: 22px;
+  color: #f4f4f0;
+  justify-content: flex-end;
+}
+.immersive-chapter-markers {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #eee;
+  font: 8px var(--ih-mono);
+  letter-spacing: 0.08em;
+}
+.immersive-chapter-markers span {
+  padding: 6px 8px;
+  color: #161818;
+  background: linear-gradient(
+    90deg,
+    #d7ff00 calc(var(--chapter-progress, 0) * 100%),
+    #b9c0b8 0
+  );
+}
+.immersive-chapter-markers i {
+  display: block;
+  width: 17px;
+  height: 1px;
+  background: #828781;
+}
+.immersive-light-caption {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: min(350px, 30vw);
+  color: #525753;
+  font-size: 11px;
+  line-height: 1.55;
+}
+.immersive-side-note {
+  position: absolute;
+  right: 5vw;
+  top: 50%;
+  writing-mode: vertical-rl;
+  color: #6c716d;
+}
+.immersive-disciplines {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  gap: 22px;
+  margin-top: 34px;
+  font: 9px var(--ih-mono);
+  letter-spacing: 0.06em;
+}
+.immersive-disciplines span {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+}
+.immersive-services {
+  background: transparent;
+}
+.immersive-services-content {
+  position: absolute;
+  left: auto;
+  right: 6vw;
+  width: 42vw;
+  top: 51%;
+  transform: translateY(-48%);
+  display: block;
+}
+.immersive-services-content h2 {
+  margin-top: 20px;
+  font-size: clamp(40px, 5.4vw, 78px);
+  line-height: 0.88;
+  letter-spacing: -0.075em;
+  font-weight: 500;
+}
+.immersive-services-content h2 {
+  font-family: "Barlow", var(--ih-sans);
+}
+.immersive-services > .immersive-index > :last-child {
+  display: none;
+}
+.immersive-services .immersive-service-list {
+  margin-top: 28px;
+}
+.immersive-services-content h2 i {
+  color: transparent;
+  -webkit-text-stroke: 1px #e4e5e2;
+  font-style: normal;
+}
+.immersive-service-list article {
+  display: grid;
+  grid-template-columns: 35px 1fr 30px;
+  gap: 18px;
+  padding: 24px 0;
+  border-top: 1px solid var(--ih-line);
+}
+.immersive-service-list article:last-child {
+  border-bottom: 1px solid var(--ih-line);
+}
+.immersive-service-list article > span {
+  padding-top: 4px;
+  color: var(--ih-muted);
+}
+.immersive-service-list h3 {
+  font-size: clamp(19px, 2vw, 27px);
+  letter-spacing: -0.045em;
+  font-weight: 450;
+}
+.immersive-service-list p {
+  max-width: 390px;
+  margin-top: 8px;
+  color: #969a97;
+  font-size: 13px;
+  line-height: 1.55;
+}
+.immersive-service-list article > svg {
+  color: #c4c7c4;
+}
+.immersive-service-foot {
+  position: absolute;
+  bottom: 5%;
+  left: 5vw;
+  color: var(--ih-muted);
+}
+.immersive-contact {
+  background: transparent;
+}
+.immersive-contact-lockup {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: 0.08;
+}
+.immersive-contact-lockup span {
+  position: absolute;
+  font-size: clamp(100px, 22vw, 340px);
+  line-height: 0.8;
+  font-weight: 650;
+  letter-spacing: -0.095em;
+  white-space: nowrap;
+}
+.immersive-contact-lockup b {
+  position: absolute;
+  font-size: clamp(300px, 54vw, 760px);
+  line-height: 0.8;
+  font-weight: 650;
+  letter-spacing: -0.1em;
+  color: transparent;
+  -webkit-text-stroke: 1px #f5f5f266;
+}
+.immersive-contact-copy {
+  position: absolute;
+  z-index: 2;
+  top: 51%;
+  left: 15vw;
+  transform: translateY(-50%);
+}
+.immersive-contact-copy h2 {
+  margin-top: 25px;
+  font-size: clamp(58px, 9vw, 128px);
+  line-height: 0.82;
+  font-weight: 500;
+  letter-spacing: -0.095em;
+}
+.immersive-contact-copy h2 i {
+  color: transparent;
+  -webkit-text-stroke: 1px #f2f2ef;
+  font-style: normal;
+}
+.immersive-contact-copy > p {
+  margin-top: 30px;
+  color: #a2a4a1;
+}
+.immersive-contact-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 13px;
+  margin-top: 33px;
+  padding: 14px 19px;
+  border: 1px solid #ffffff77;
+  border-radius: 40px;
+  font: 11px var(--ih-mono);
+  transition:
+    background 0.2s,
+    color 0.2s;
+}
+.immersive-contact-link:hover {
+  background: white;
+  color: #080909 !important;
+}
+.immersive-back-top {
+  position: absolute;
+  z-index: 2;
+  right: 5vw;
+  bottom: 7%;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  color: #a2a4a1 !important;
+}
+.immersive-back-top svg {
+  transform: rotate(-90deg);
+}
+.immersive-index-section {
+  position: relative;
+  padding: 150px 5vw 70px;
+  background: #e9eae6;
+  color: #141615;
+}
+.immersive-index-section > .immersive-index {
+  top: 35px;
+  left: 5vw;
+  right: 5vw;
+  color: #565b57;
+}
+.immersive-index-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 25px;
+  margin-bottom: 45px;
+}
+.immersive-index-heading h2 {
+  font-size: clamp(44px, 7vw, 88px);
+  line-height: 0.9;
+  font-weight: 500;
+  letter-spacing: -0.08em;
+}
+.immersive-index-heading h2 i {
+  font-weight: 400;
+}
+.immersive-filter {
+  display: flex;
+  gap: 8px;
+}
+.immersive-filter button {
+  border: 1px solid #777c76;
+  border-radius: 30px;
+  padding: 10px 15px;
+  background: transparent;
+  color: #282c29;
+  font: 10px var(--ih-mono);
+  cursor: pointer;
+}
+.immersive-filter button[aria-pressed="true"],
+.immersive-filter button:hover {
+  background: #171918;
+  color: white;
+  border-color: #171918;
+}
+.immersive-index-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 36px 20px;
+}
+.immersive-index-card {
+  min-width: 0;
+  position: relative;
+}
+.immersive-index-card > a {
+  display: block;
+}
+.immersive-index-card .project-art {
+  aspect-ratio: 1.27;
+  overflow: hidden;
+}
+.immersive-index-card > a > svg {
+  position: absolute;
+  right: 0;
+  bottom: 1px;
+  transition: transform 0.25s;
+}
+.immersive-index-card > a:hover > svg {
+  transform: translateX(5px);
+}
+.immersive-index-card-copy {
+  padding: 17px 28px 0 0;
+}
+.immersive-index-card-copy > span:first-child {
+  color: #666b66;
+  font-size: 9px;
+}
+.immersive-index-card-copy h3 {
+  margin-top: 9px;
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: -0.04em;
+}
+.immersive-index-card-copy p {
+  max-width: 340px;
+  margin-top: 7px;
+  color: #606561;
+  font-size: 12px;
+  line-height: 1.45;
+}
+.immersive-index-tags {
+  display: block;
+  margin-top: 13px;
+  color: #70756f;
+  font: 9px var(--ih-mono);
+}
+.immersive-index-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 85px;
+  padding-top: 22px;
+  border-top: 1px solid #b8bcb6;
+}
+.immersive-index-bottom .immersive-text-link {
+  color: #171918;
+}
+.immersive-motion-toggle {
+  border: 0;
+  background: none;
+  color: #565b57;
+  font: 9px var(--ih-mono);
+  letter-spacing: 0.07em;
+  cursor: pointer;
+}
+.immersive-motion-toggle:hover {
+  color: #000;
+}
+.immersive-home > .immersive-motion-toggle {
+  position: fixed;
+  z-index: 25;
+  right: 28px;
+  bottom: 20px;
+  padding: 7px 9px;
+  border: 1px solid #ffffff55;
+  border-radius: 20px;
+  background: #0708089c;
+  color: #e7e8e5;
+  backdrop-filter: blur(8px);
+  font-size: 8px;
+}
+.immersive-home > .immersive-motion-toggle:hover {
+  border-color: #fff;
+  color: #fff;
+}
+body[data-scene-chapter="mission"] .immersive-home > .immersive-motion-toggle,
+body[data-scene-chapter="vision"] .immersive-home > .immersive-motion-toggle {
+  color: #171918;
+  border-color: #17191866;
+  background: #d6d8d3bb;
+}
+.immersive-home.scene-ready .immersive-work-scene,
+.immersive-home.scene-ready .immersive-light,
+.immersive-home.scene-ready .immersive-services,
+.immersive-home.scene-ready .immersive-contact {
+  background-color: transparent;
+}
+.immersive-home.scene-ready .immersive-work-scene {
+  background: transparent;
+}
+.immersive-home.scene-ready .immersive-work-visual {
+  visibility: hidden;
+  opacity: 0;
+}
+.immersive-home .hero-scene {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  width: 100vw;
+  height: 100svh;
+  pointer-events: none;
+}
+.immersive-home .hero-scene canvas {
+  width: 100%;
+  height: 100%;
+}
+.immersive-home .hero-scene.scene-ready {
+  pointer-events: none;
+}
+.immersive-home.is-static .immersive-light {
+  background: #d6d8d3;
+}
+.immersive-home.is-static .immersive-services,
+.immersive-home.is-static .immersive-contact {
+  background: #080909;
+}
+.immersive-home.is-static .immersive-wordmark {
+  opacity: 0.18;
+}
+.immersive-home.is-static .immersive-work-visual,
+.immersive-home.is-static .immersive-work-copy {
+  animation: none;
+}
+.immersive-home.is-static .immersive-scroll-hint svg {
+  animation: none;
+}
+.immersive-home.is-static *,
+.immersive-home.is-static *::before,
+.immersive-home.is-static *::after {
+  transition: none !important;
+}
+@media (max-width: 900px) {
+  .immersive-screen {
+    padding: 122px 6vw 42px;
+  }
+  .immersive-index {
+    left: 6vw;
+    right: 6vw;
+    top: 92px;
+    font-size: 9px;
+  }
+  .immersive-wordmark {
+    top: 39%;
+  }
+  .immersive-wordmark > span {
+    font-size: clamp(72px, 18vw, 160px);
+  }
+  .immersive-wordmark > b {
+    font-size: 58vw;
+  }
+  .immersive-hero-note {
+    right: 6vw;
+    bottom: 13%;
+  }
+  .immersive-scroll-hint {
+    left: 6vw;
+    bottom: 5%;
+  }
+  .immersive-work-visual {
+    left: 50%;
+    top: 42%;
+    width: min(61vw, 490px);
+    height: min(49vh, 420px);
+  }
+  .immersive-work-footer {
+    left: 6vw;
+    right: 6vw;
+    bottom: 9%;
+  }
+  .immersive-work-title {
+    font-size: clamp(34px, 7vw, 59px);
+  }
+  .immersive-services-content {
+    left: auto;
+    right: 6vw;
+    width: 43vw;
+  }
+  .immersive-contact-copy {
+    left: 10vw;
+  }
+  .immersive-index-section {
+    padding-right: 6vw;
+    padding-left: 6vw;
+  }
+  .immersive-index-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 600px) {
+  .immersive-screen,
+  .immersive-sticky {
+    min-height: 100svh;
+    height: 100svh;
+  }
+  .immersive-index {
+    gap: 20px;
+    font-size: 8px;
+    letter-spacing: 0.045em;
+  }
+  .immersive-index > :last-child {
+    max-width: 44%;
+  }
+  .immersive-wordmark {
+    top: 36%;
+  }
+  .immersive-wordmark > span {
+    font-size: 25vw;
+  }
+  .immersive-hero-note {
+    left: 6vw;
+    right: auto;
+    bottom: 15%;
+    text-align: left;
+  }
+  .immersive-hero-note p {
+    font-size: 17px;
+  }
+  .immersive-scroll-hint {
+    bottom: 5%;
+  }
+  .immersive-works-track {
+    height: calc(100svh * var(--work-count, 6));
+  }
+  .immersive-work-visual {
+    top: 36%;
+    width: 77vw;
+    height: min(42vh, 360px);
+    transform: translate(-50%, -50%) rotate(-2deg);
+  }
+  .immersive-work-footer {
+    bottom: 8%;
+    left: 6vw;
+    right: 6vw;
+    align-items: end;
+  }
+  .immersive-work-copy {
+    max-width: 73%;
+  }
+  .immersive-work-number {
+    font-size: 8px;
+  }
+  .immersive-work-title {
+    font-size: clamp(32px, 9vw, 48px);
+  }
+  .immersive-work-copy > p {
+    max-width: 280px;
+    font-size: 12px;
+    line-height: 1.4;
+  }
+  .immersive-tags {
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+  .immersive-tags span {
+    padding: 4px 6px;
+    font-size: 8px;
+  }
+  .immersive-work-controls {
+    flex-wrap: wrap;
+    justify-content: end;
+    gap: 7px;
+    max-width: 100px;
+  }
+  .immersive-work-controls > span {
+    width: 100%;
+    margin: 0;
+    text-align: right;
+  }
+  .immersive-work-controls button {
+    width: 35px;
+    height: 35px;
+  }
+  .immersive-work-controls button svg {
+    width: 17px;
+  }
+  .immersive-progress {
+    bottom: 4%;
+  }
+  .immersive-statement {
+    inset: 114px 7vw 22%;
+    transform: none;
+  }
+  .immersive-statement h2 {
+    top: 0;
+    font-size: clamp(52px, 14vw, 76px);
+  }
+  .immersive-statement-copy {
+    top: 32%;
+    width: 90%;
+    padding: 0;
+  }
+  .immersive-statement-copy h3 {
+    font-size: clamp(29px, 8vw, 43px);
+  }
+  .immersive-statement-copy .immersive-chapter-markers {
+    gap: 5px;
+    margin-top: 19px;
+    font-size: 7px;
+  }
+  .immersive-chapter-markers span {
+    padding: 6px 6px;
+  }
+  .immersive-chapter-markers i {
+    width: 8px;
+  }
+  .immersive-light-caption {
+    bottom: 0;
+    width: 75%;
+    font-size: 11px;
+  }
+  .immersive-disciplines {
+    left: 0;
+    right: auto;
+    bottom: -14%;
+    flex-direction: column;
+    gap: 9px;
+    font-size: 8px;
+  }
+  .immersive-side-note {
+    display: none;
+  }
+  .immersive-chapter-markers {
+    gap: 7px;
+    margin-top: 30px;
+    font-size: 8px;
+  }
+  .immersive-chapter-markers i {
+    width: 23px;
+  }
+  .immersive-disciplines {
+    flex-direction: column;
+    gap: 13px;
+    font-size: 8px;
+  }
+  .immersive-services-content {
+    top: 48%;
+    left: 7vw;
+    right: 7vw;
+    width: auto;
+    display: block;
+    transform: translateY(-45%);
+  }
+  .immersive-services-content h2 {
+    margin-top: 19px;
+    font-size: clamp(66px, 17vw, 98px);
+  }
+  .immersive-service-list {
+    margin-top: 37px;
+  }
+  .immersive-service-list article {
+    grid-template-columns: 24px 1fr 20px;
+    gap: 11px;
+    padding: 16px 0;
+  }
+  .immersive-service-list h3 {
+    font-size: 18px;
+  }
+  .immersive-service-list p {
+    margin-top: 5px;
+    font-size: 11px;
+  }
+  .immersive-service-list article > svg {
+    width: 18px;
+  }
+  .immersive-service-foot {
+    left: 6vw;
+    bottom: 4%;
+    font-size: 8px;
+  }
+  .immersive-contact-copy {
+    left: 8vw;
+    top: 49%;
+  }
+  .immersive-contact-copy h2 {
+    font-size: clamp(59px, 15vw, 95px);
+  }
+  .immersive-contact-copy > p {
+    font-size: 9px;
+  }
+  .immersive-back-top {
+    right: 6vw;
+    bottom: 5%;
+    font-size: 8px;
+  }
+  .immersive-index-section {
+    padding: 120px 6vw 50px;
+  }
+  .immersive-index-section > .immersive-index {
+    left: 6vw;
+    right: 6vw;
+    top: 23px;
+  }
+  .immersive-index-heading {
+    align-items: start;
+    flex-direction: column;
+    margin-bottom: 30px;
+  }
+  .immersive-index-heading h2 {
+    font-size: clamp(43px, 11vw, 68px);
+  }
+  .immersive-filter {
+    gap: 6px;
+  }
+  .immersive-filter button {
+    padding: 9px 12px;
+    font-size: 9px;
+  }
+  .immersive-index-grid {
+    grid-template-columns: 1fr;
+    gap: 29px;
+  }
+  .immersive-index-card .project-art {
+    aspect-ratio: 1.35;
+  }
+  .immersive-index-card-copy {
+    padding-top: 13px;
+  }
+  .immersive-index-card-copy h3 {
+    font-size: 20px;
+  }
+  .immersive-index-card-copy p {
+    font-size: 12px;
+  }
+  .immersive-index-bottom {
+    align-items: start;
+    flex-direction: column;
+    gap: 22px;
+    margin-top: 55px;
+  }
+  .immersive-home > .immersive-motion-toggle {
+    right: 14px;
+    bottom: 12px;
+    font-size: 7px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .immersive-home *,
+  .immersive-home *::before,
+  .immersive-home *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
