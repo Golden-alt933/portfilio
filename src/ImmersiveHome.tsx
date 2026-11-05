@@ -462,6 +462,12 @@ export default function ImmersiveHome() {
       );
       // Copy fades while the last service screen wipes out to full frame.
       story.style.setProperty("--service-exit", serviceExit.toFixed(3));
+      // Frame closes in over the first third of the exit, once the last
+      // video is fully on screen.
+      story.style.setProperty(
+        "--service-frame",
+        (reducedMotion ? 1 : smooth(serviceExit / 0.3)).toFixed(3),
+      );
       story.style.setProperty(
         "--service-end",
         (reducedMotion ? 0 : smooth((servicesProgress - 0.86) / 0.08)).toFixed(3),
@@ -908,12 +914,6 @@ export default function ImmersiveHome() {
             <span>04 / SERVICES</span>
             <span>FROM FIRST THOUGHT TO FINISHED THING</span>
           </div>
-          <div className="service-frame" aria-hidden="true">
-            <i />
-            <i />
-            <i />
-            <i />
-          </div>
           <h2 id="services-title" className="immersive-services-heading">
             Make it <i>real.</i>
           </h2>
@@ -961,6 +961,21 @@ export default function ImmersiveHome() {
         </div>
       </section>
 
+      {/* Fixed overlay for the full-frame last service: keeps the section label
+          and closes a corner-marked frame in before the zoom back to the R. */}
+      <div className="service-exit-overlay" aria-hidden="true">
+        <div className="immersive-index immersive-mono">
+          <span>04 / SERVICES</span>
+          <span>FROM FIRST THOUGHT TO FINISHED THING</span>
+        </div>
+        <div className="service-frame">
+          <i />
+          <i />
+          <i />
+          <i />
+        </div>
+      </div>
+
       {/* Scroll room for the screen to shrink back into the R. */}
       <div className="immersive-exit-spacer" aria-hidden="true" />
 
@@ -978,12 +993,12 @@ export default function ImmersiveHome() {
           <CreateWordmark className="closing-create" guides />
           <div className="immersive-contact-copy">
             <span className="immersive-section-kicker immersive-mono">
-              LET'S MAKE SOMETHING MATTER
+              LET'S MAKE SOMETHING THAT MATTERS
             </span>
             <h2 id="contact-title">
-              Have a good
+              Got an idea?
               <br />
-              <i>feeling?</i>
+              <i>Let's make it.</i>
             </h2>
             {profile.email ? (
               <a
@@ -994,7 +1009,7 @@ export default function ImmersiveHome() {
                 <ArrowRight size={17} />
               </a>
             ) : (
-              <p className="immersive-mono">OPEN FOR THE RIGHT PROJECT</p>
+              <p className="immersive-mono">OPEN TO THE RIGHT PROJECT</p>
             )}
           </div>
           <footer className="immersive-finale-footer">

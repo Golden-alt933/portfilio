@@ -496,6 +496,10 @@ export function IntroLoader({
           />
         </svg>
       </div>
+      {/* Centred line under the mark, like the reference's mission sentence. */}
+      <p className="intro-loader__tagline" aria-hidden="true">
+        <ScrambleText text="Cut with feeling. Build with purpose." as="span" />
+      </p>
       <div className="intro-loader__meta">
         <ScrambleText
           text="R / FORM IN MOTION"

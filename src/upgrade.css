@@ -397,7 +397,10 @@ body[data-intro-stage="revealing"] .gui-panel {
 
 /* ---------- Finale + footer ---------- */
 .immersive-contact-copy {
-  top: 60%;
+  top: 65%;
+}
+.closing-create {
+  top: 27%;
 }
 .immersive-finale-footer {
   position: absolute;
@@ -524,8 +527,8 @@ body:has(.works-index-page) {
   stroke: #687674;
   stroke-width: 1;
   vector-effect: non-scaling-stroke;
-  stroke-dasharray: 500;
-  stroke-dashoffset: calc(500 * (1 - min(1, var(--chapter-progress, 1) * 1.25)));
+  stroke-dasharray: 2600;
+  stroke-dashoffset: calc(2600 * (1 - min(1, var(--chapter-progress, 1) * 1.25)));
 }
 .immersive-home.is-static .statement-heading text {
   stroke-dashoffset: 0;
@@ -569,10 +572,15 @@ html:has(.works-index-page) {
 
 /* Last service: a frame with corner plus marks closes in from the corners. */
 .service-frame {
-  --frame-in: var(--service-end, 0);
+  --frame-in: var(--service-frame, 0);
   position: absolute;
   z-index: 5;
-  inset: calc(4% - (1 - var(--frame-in)) * 14%) calc(3.6% - (1 - var(--frame-in)) * 14%);
+  /* Closes from beyond the screen edges to just below the logo and the
+     "04 / SERVICES" line. */
+  top: calc(162px - (1 - var(--frame-in)) * 30vh);
+  bottom: calc(6% - (1 - var(--frame-in)) * 30vh);
+  left: calc(5vw - (1 - var(--frame-in)) * 25vw);
+  right: calc(5vw - (1 - var(--frame-in)) * 25vw);
   border: 1px solid #ffffff8c;
   opacity: var(--frame-in);
   pointer-events: none;
@@ -625,7 +633,7 @@ html:has(.works-index-page) {
 /* Services chrome only appears once the scene has switched to services, so
    its heading never sits over the pale vision chapter. */
 .immersive-services-stage {
-  opacity: calc(var(--scene-services-mix, 1) * (1 - min(1, var(--service-exit, 0) * 5)));
+  opacity: calc(var(--scene-services-mix, 1) * (1 - clamp(0, calc((var(--service-exit, 0) - 0.33) * 6), 1)));
 }
 .immersive-exit-spacer {
   height: 250svh;
@@ -710,5 +718,30 @@ html:has(.works-index-page) {
   opacity: 1;
 }
 .immersive-home.is-static .service-progress {
+  display: none;
+}
+
+.immersive-home.is-static .service-frame {
+  display: none;
+}
+
+/* Overlay for the last full-frame service (outside the scrolling section). */
+.service-exit-overlay {
+  position: fixed;
+  z-index: 6;
+  inset: 0;
+  color: #fff;
+  pointer-events: none;
+  mix-blend-mode: difference;
+  opacity: calc(var(--service-end, 0) * (1 - clamp(0, calc((var(--service-exit, 0) - 0.3) * 12), 1)));
+}
+.service-exit-overlay .immersive-index {
+  top: 106px;
+  color: #fff;
+}
+.immersive-services-stage > .immersive-index {
+  opacity: calc(1 - var(--service-end, 0));
+}
+.immersive-home.is-static .service-exit-overlay {
   display: none;
 }

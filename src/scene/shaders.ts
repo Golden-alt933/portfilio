@@ -82,6 +82,7 @@ if(uWorkMedia>.001){
 vec2 dotP=fract(gl_FragCoord.xy*.23); float dots=step(.35,dotP.x)*step(.35,dotP.y); pat*=.8+.2*dots;
 float rim=(1.-smoothstep(gap,gap+.035/size,edgeDist))*inPanel;
 pat+=vec3(.12,.22,.55)*rim*min(length(v)*2.5,1.)*.6;
+pat*=1.-abs(uWorks)*.55;
 vec3 col=mix(vec3(.004,.005,.009),pat,inPanel);
 // Broad studio cast over the wall: blue from the right, teal from the left.
 col+=(vec3(.0,.025,.15)*smoothstep(.2,1.05,uv.x)+vec3(.0,.055,.035)*smoothstep(.8,-.05,uv.x))*(1.-uServices)*(1.-uLight);
@@ -144,7 +145,7 @@ float n1=surfaceNoise(vWorld), n2=surfaceNoise(vWorld.yzx*1.7+3.);
 float rough=clamp(uRoughness*(.7+.45*n1+.35*n2),0.,1.);
 vec3 Nv=normalize((viewMatrix*vec4(N,0.)).xyz);
 float ior=(uIorRGB.r-uIorRGB.b);
-vec2 shift=-Nv.xy*.1;
+vec2 shift=-Nv.xy*.15;
 vec2 dir=normalize(shift+vec2(.0001));
 vec2 blurDir=vec2(n1,n2)*rough*.3*.05;
 vec3 acc=vec3(0.);
@@ -155,14 +156,15 @@ for(int i=0;i<8;i++){
   vec2 o=screen+shift+blurDir*(fi/7.-.5)*2.+vel*.004;
   acc+=vec3(sceneAt(o+dir*slide).r,sceneAt(o+dir*slide*2.).g,sceneAt(o+dir*slide*4.).b);
 }
-vec3 refr=acc/8.*.9;
+vec3 refr=acc/8.*.9*vec3(.94,.98,1.05);
 vec3 L=normalize(vec3(-1.,.8,1.)); vec3 H=normalize(L+V);
 float a=.003+rough*.4; float a2=a*a; float ndh=max(dot(N,H),0.);
 float dd=ndh*ndh*(a2-1.)+1.; float spec=a2/(3.14159*dd*dd);
 vec3 L2=normalize(vec3(.9,-.3,.6)); vec3 H2=normalize(L2+V); float ndh2=max(dot(N,H2),0.); float dd2=ndh2*ndh2*(a2-1.)+1.; float spec2=a2/(3.14159*dd2*dd2);
 float F=.1+.9*pow(1.-max(dot(N,V),0.),5.);
 vec3 env=textureCube(uEnv,reflect(-V,N)).rgb;
-vec3 color=mix(refr,env*1.15,F*.85)+vec3(1.)*min(spec,8.)*.06*F+vec3(.75,.85,1.)*min(spec2,8.)*.025;
+float ndv=max(dot(N,V),0.);
+vec3 color=mix(refr,env*1.25,F)+vec3(1.)*min(spec,12.)*.1*(.4+F)+vec3(.75,.85,1.)*min(spec2,12.)*.04+vec3(.92,.96,1.)*pow(1.-ndv,3.)*.28;
 color*=1.2*uTint;
 float contour=step(.58,fract((vUv.x+vUv.y)*42.)); vec3 light=vec3(.17,.78,.73); color=mix(color,light,.38*uLight*contour); color=mix(color,vec3(.84,.98,.95),uLight*.14);
 color*=1.+min(length(vel),1.)*.12;
@@ -194,9 +196,16 @@ void main(){
 vec2 uv=vUv; vec2 cuv=vUv-.5;
 // Pointer fluid only warps and brightens the finished frame (no colour).
 vec2 fl=texture2D(uFluid,uv).xy; float fll=length(fl);
-vec3 mainCol=sceneAt(uv+fl*.01)*(1.+fll*.8);
+vec3 mainCol=sceneAt(uv+fl*.014)*(1.+fll*.8)+vec3(.03,.04,.055)*min(fll,1.6);
 vec3 serviceCol=texture2D(uServiceTex,clamp(uv+fl*.01,vec2(.001),vec2(.999))).rgb*(1.+fll*.8)*smoothstep(1.5,.3,length(cuv));
 vec3 col=mix(mainCol,serviceCol,step(.9999,uVisibleService));
+// Single-pass bloom: highlights above .9 glow softly (R edges, CREATE).
+vec3 bloom=vec3(0.);
+for(int i=0;i<12;i++){
+  float a=float(i)*.5235988; vec2 d=vec2(cos(a)/uAspect.x,sin(a));
+  bloom+=max(sceneAt(uv+d*.006)-.9,0.)+max(sceneAt(uv+d*.018)-.9,0.)*.75+max(sceneAt(uv+d*.04)-.9,0.)*.45;
+}
+col+=bloom/12.*1.1*(1.-step(.9999,uVisibleService));
 // Opening burst: a soft ring grows with load progress; inside it the scene
 // zooms out from 2x, and both scene and loader drawing are pushed radially
 // by sin(r*PI), so the push peaks at the ring itself.

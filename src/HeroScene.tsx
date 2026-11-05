@@ -103,7 +103,7 @@ function paintCreate(canvas: HTMLCanvasElement) {
   sharp.width = canvas.width;
   sharp.height = canvas.height;
   const sharpCtx = sharp.getContext("2d")!;
-  drawCreateWordmark(sharpCtx, sharp.width, sharp.height, 7);
+  drawCreateWordmark(sharpCtx, sharp.width, sharp.height, 13);
 
   const fade = (inner: CanvasRenderingContext2D, centre: boolean) => {
     const gradient = inner.createLinearGradient(0, 0, canvas.width, 0);
@@ -347,6 +347,7 @@ export default function HeroScene({
       typeMat,
     );
     typePlane.position.set(0, 0.04, -3.5);
+    const typeFollow = { x: 0, y: 0 };
     bgScene.add(typePlane);
     // WORKS title passes behind the R between the hero and the card track, so
     // the glass letter refracts it the same way it bends CREATE.
@@ -907,9 +908,9 @@ export default function HeroScene({
       // Exit runs the handoff in reverse: the full-frame screen shrinks back
       // into the R's left side, returns to colour noise, then disappears.
       const exit = s.serviceExit ?? 0;
-      const exitMorph = 1 - THREE.MathUtils.smoothstep(exit, 0.12, 0.72);
-      const exitScreen = 1 - THREE.MathUtils.smoothstep(exit, 0.55, 0.85);
-      const exitVision = 1 - THREE.MathUtils.smoothstep(exit, 0.82, 1);
+      const exitMorph = 1 - THREE.MathUtils.smoothstep(exit, 0.36, 0.8);
+      const exitScreen = 1 - THREE.MathUtils.smoothstep(exit, 0.68, 0.9);
+      const exitVision = 1 - THREE.MathUtils.smoothstep(exit, 0.9, 1);
       const inExit = exit > 0;
       const visionRotate =
         (inExit ? exitVision : serviceTurn.vision) * (1 - contactMix);
@@ -940,6 +941,10 @@ export default function HeroScene({
         (1 - contactMix) *
         (1 - lightMix) *
         (1 - servicesMix);
+      typeFollow.x += (pointer.ndcX * 0.035 - typeFollow.x) * Math.min(1, dt * 3);
+      typeFollow.y += (pointer.ndcY * 0.025 - typeFollow.y) * Math.min(1, dt * 3);
+      typePlane.position.x = reducedRef.current ? 0 : typeFollow.x;
+      typePlane.position.y = 0.04 + (reducedRef.current ? 0 : typeFollow.y);
       const worksTitle = s.worksTitle ?? 0;
       // Signed travel lets the title slide in from one side and out the other.
       bgMaterial.uniforms.uWorks.value =
