@@ -170,7 +170,6 @@ function makeCanvasTexture(canvas: HTMLCanvasElement) {
 }
 
 const CREATE_SCALE = 0.8;
-const PANEL_LAYER = 1;
 
 export default function HeroScene({
   state,
@@ -607,6 +606,7 @@ export default function HeroScene({
         },
         transparent: true,
         depthWrite: false,
+        depthTest: false,
         side: THREE.DoubleSide,
         vertexShader: panelVertex,
         fragmentShader: panelFragment,
@@ -615,9 +615,9 @@ export default function HeroScene({
       panel.userData.slug = p.slug;
       panel.userData.baseIndex = i;
       panel.visible = false;
-      // Cards live on their own layer: they are drawn into the buffer the R
-      // refracts (as the reference does), never in front of the letter.
-      panel.layers.set(PANEL_LAYER);
+      // Cards always draw over the R (no depth test, later render order), so
+      // the rotating letter never slices through a card.
+      panel.renderOrder = 10;
       scene.add(panel);
       panels.push(panel);
     }
@@ -690,7 +690,6 @@ export default function HeroScene({
       downTarget: null as THREE.Object3D | null,
     };
     const raycaster = new THREE.Raycaster();
-    raycaster.layers.enable(PANEL_LAYER);
     const pointerMove = (event: PointerEvent) => {
       if (
         !activeRef.current ||
@@ -1298,20 +1297,6 @@ export default function HeroScene({
       letter.visible = true;
       holder!.dataset.depth = rMaterial.uniforms.uDepthScale.value.toFixed(3);
       holder!.dataset.finale = finaleProgress.toFixed(3);
-      // Work cards go into the refraction buffer on top of the wall, so the
-      // R sits in front of them and bends them like the rest of the scene.
-      if (panels.some((panel) => panel.visible)) {
-        const autoClear = renderer.autoClear;
-        const background = scene.background;
-        renderer.autoClear = false;
-        scene.background = null;
-        camera.layers.set(PANEL_LAYER);
-        renderer.setRenderTarget(backgroundTarget);
-        renderer.render(scene, camera);
-        camera.layers.set(0);
-        scene.background = background;
-        renderer.autoClear = autoClear;
-      }
       renderer.setRenderTarget(compositeTarget);
       renderer.clear(true, true, true);
       renderer.render(scene, camera);
