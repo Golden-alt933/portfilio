@@ -422,6 +422,9 @@ export default function HeroScene({
         uNoiseScale: { value: 9 },
         uIorRGB: { value: new THREE.Vector3(1.54, 1.51, 1.48) },
         uDepthScale: { value: 0.035 },
+        uMorph: { value: 0 },
+        uHalfDepth: { value: 0.3 },
+        uHalfHeight: { value: 2.1 },
         uRipple: { value: 0 },
       },
       vertexShader: refractionVertex,
@@ -506,6 +509,8 @@ export default function HeroScene({
     );
     displayPlane.rotation.y = -Math.PI / 2;
     displayPlane.renderOrder = 4;
+    rMaterial.uniforms.uHalfDepth.value = (letterBox.max.z - letterBox.min.z) / 2;
+    rMaterial.uniforms.uHalfHeight.value = (letterBox.max.y - letterBox.min.y) / 2;
     displayPlane.frustumCulled = false;
     const serviceScene = new ServiceScene(serviceList.length);
     const serviceTurn = { vision: 0, list: 0, scroll: 1 };
@@ -896,17 +901,27 @@ export default function HeroScene({
       const ease = (k: number) => 1 - Math.pow(1 - k, dt * 60);
       serviceTurn.vision += ((s.visionRotate ?? 0) - serviceTurn.vision) * ease(0.5 * 0.2);
       serviceTurn.list += ((s.serviceListIn ?? 0) - serviceTurn.list) * ease(0.3 * 0.2);
-      const visionRotate = serviceTurn.vision * (1 - contactMix);
-      const serviceRotate = (s.serviceRotate ?? 0) * (1 - contactMix);
-      const serviceScreenIn = s.serviceScreenIn ?? 0;
-      const visibleService = servicesMix >= 0.999 && contactMix < 0.001 ? 1 : 0;
+      // Exit runs the handoff in reverse: the full-frame screen shrinks back
+      // into the R's left side, returns to colour noise, then disappears.
+      const exit = s.serviceExit ?? 0;
+      const exitMorph = 1 - THREE.MathUtils.smoothstep(exit, 0.12, 0.72);
+      const exitScreen = 1 - THREE.MathUtils.smoothstep(exit, 0.55, 0.85);
+      const exitVision = 1 - THREE.MathUtils.smoothstep(exit, 0.82, 1);
+      const inExit = exit > 0;
+      const visionRotate =
+        (inExit ? exitVision : serviceTurn.vision) * (1 - contactMix);
+      const serviceRotate =
+        (inExit ? exitMorph : (s.serviceRotate ?? 0)) * (1 - contactMix);
+      const serviceScreenIn = inExit ? exitScreen : (s.serviceScreenIn ?? 0);
+      const visibleService =
+        servicesMix >= 0.999 && contactMix < 0.001 && !inExit ? 1 : 0;
       const diveTurn = visionRotate;
       // The zoom releases while the rainbow still covers the frame, so the
       // camera is back in place by the time services is revealed.
       const diveZoom = 0;
       // Pale ends only once the side screen fills the frame.
       const palePhase =
-        paleFlatten * (1 - THREE.MathUtils.smoothstep(serviceRotate, 0.93, 1));
+        paleFlatten * (1 - THREE.MathUtils.smoothstep(serviceRotate, 0.93, 1)) * (inExit ? 0 : 1);
       const light = Math.max(lightMix, palePhase) * (1 - contactMix);
       const portalPulse = 0;
       const cameraApproach = Math.max(0, cameraDive - portalTravel * 1.8);
@@ -1109,7 +1124,7 @@ export default function HeroScene({
       const closingViewHeight = 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2) * camera.position.z;
       const targetLetterX =
         (mobile ? -0.03 : -0.12) -
-        (!mobile ? servicesMix * (1 - contactMix) * 1.98 : 0) +
+        (!mobile ? servicesMix * (1 - contactMix) * (1 - exit) * 1.98 : 0) +
         palePhase * 0.2 - contactMix * finaleShift * closingViewHeight * camera.aspect * 0.178;
       letter.position.x +=
         (targetLetterX - letter.position.x) * Math.min(1, dt * 3);
@@ -1131,14 +1146,16 @@ export default function HeroScene({
       rMaterial.uniforms.uTint.value.set(...sceneTweaks.tint);
       rMaterial.uniforms.uLight.value = light * (1 - diveTurn);
       rMaterial.uniforms.uReveal.value = reveal;
-      rMaterial.uniforms.uServices.value = servicesMix * (1 - contactMix);
+      rMaterial.uniforms.uServices.value =
+        servicesMix * (1 - contactMix) * (1 - THREE.MathUtils.smoothstep(exit, 0, 0.25));
+      rMaterial.uniforms.uMorph.value = serviceRotate;
       rMaterial.uniforms.uContact.value = contactMix * THREE.MathUtils.smoothstep(finaleProgress, 0.78, 1);
       rMaterial.uniforms.uDepthScale.value =
         1 - palePhase * 0.97 * (1 - diveTurn);
       // The side face tracks the letter's live extrusion depth.
       displayPlane.scale.x = Math.max(0.02, rMaterial.uniforms.uDepthScale.value);
       rMaterial.uniforms.uRipple.value = 0;
-      outlineMaterial.opacity = light * (1 - diveTurn);
+      outlineMaterial.opacity = light * (1 - diveTurn) * (1 - serviceRotate);
       displayMaterial.uniforms.uOpacity.value = (1 - visibleService) * (1 - contactMix);
       displayMaterial.uniforms.uTime.value = now * 0.001;
       displayMaterial.uniforms.uVision.value = visionRotate;
@@ -1155,13 +1172,19 @@ export default function HeroScene({
       {
         // Carousel index after the reference: mostly snapped to the nearest
         // service, then eased.
-        const raw = THREE.MathUtils.clamp(1 + servicesProgress * serviceList.length - 0.5, 1, serviceList.length);
+        // Starts half a slot to the right (and further until the sheet has
+        // arrived), so the first panel slides in from the right edge.
+        let raw = 0.5 + servicesProgress * serviceList.length;
+        raw -= (1 - serviceTurn.list) * 0.4;
+        raw = THREE.MathUtils.clamp(raw, -0.5, serviceList.length);
         const nearest = Math.round(raw);
-        const snapped = nearest - (nearest - raw) * 0.4;
+        const snapped = raw < 1 ? raw : nearest - (nearest - raw) * 0.4;
         serviceTurn.scroll += (snapped - serviceTurn.scroll) * ease(0.5 * 0.2);
       }
       const serviceNeeded =
-        !reducedRef.current && (serviceScreenIn > 0 || servicesMix > 0) && contactMix < 0.999;
+        !reducedRef.current &&
+        (serviceScreenIn > 0 || servicesMix > 0 || (inExit && exit < 1)) &&
+        contactMix < 0.999;
       if (serviceNeeded) {
         const media: ServiceMedia[] = serviceList.map((service, i) => {
           if (i === serviceProjectTexture.serviceIndex) return serviceProjectTexture;

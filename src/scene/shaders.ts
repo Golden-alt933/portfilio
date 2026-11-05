@@ -1,7 +1,7 @@
 /** Standalone GLSL keeps render passes readable and makes the scene boundaries explicit. */
 export const fullscreenVertex = `varying vec2 vUv; void main(){vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`;
 
-export const refractionVertex = `uniform float uDepthScale,uRipple,uTime; varying vec2 vUv; varying vec3 vNormal; varying vec3 vWorld; void main(){ vUv=uv; vec3 p=position; float radius=length(p.xy); p.z*=uDepthScale; p.z+=sin(radius*5.-uTime*2.)*uRipple*.018; vec4 world=modelMatrix*vec4(p,1.0); vWorld=world.xyz; vNormal=normalize(mat3(modelMatrix)*normal); gl_Position=projectionMatrix*viewMatrix*world; }`;
+export const refractionVertex = `uniform float uDepthScale,uRipple,uTime,uMorph,uHalfDepth,uHalfHeight; varying vec2 vUv; varying vec3 vNormal; varying vec3 vWorld; void main(){ vUv=uv; vec3 p=position; float radius=length(p.xy); p.z*=uDepthScale; p.z+=sin(radius*5.-uTime*2.)*uRipple*.018; vec4 world=modelMatrix*vec4(p,1.0); vWorld=world.xyz; vNormal=normalize(mat3(modelMatrix)*normal); vec4 o=projectionMatrix*viewMatrix*world; o.xyz/=o.w; o.w=1.; vec4 sc=vec4(p.z/max(uHalfDepth*uDepthScale,.001)*1.03,p.y/uHalfHeight*1.03,o.z,1.); gl_Position=mix(o,sc,uMorph); }`;
 
 export const backgroundFragment = `precision highp float; varying vec2 vUv;
 uniform float uTime,uLight,uContact,uReveal,uServices,uAspect,uPortalReveal,uPortalIsVideo,uPortalAspect,uWorks,uWorksX,uWorksY,uWorkMedia,uScroll;
@@ -28,6 +28,7 @@ vec3 panelPattern(float mode,vec2 p,float seed){
   c=mix(c,vec3(.95,.44,.12),smoothstep(.6,.86,ny)*.85);
   return c*mix(.5,1.,nz);
 }
+float plusMark(vec2 cell){ vec2 d=abs(fract(cell+.5)-.5)/max(fwidth(cell),vec2(1e-4)); return max(step(d.x,.6)*step(d.y,9.),step(d.y,.6)*step(d.x,9.)); }
 vec3 hueRotate(vec3 c,float a){ const vec3 k=vec3(.57735); float ca=cos(a); return c*ca+cross(k,c)*sin(a)+k*dot(k,c)*(1.-ca); }
 vec3 coverMedia(vec2 uv){
   vec2 m=uv-.5;
@@ -99,15 +100,11 @@ if(worksAmount>.001){
 }
 // Curved 64x64 grid and cross marks on the same wall.
 float grid=min(abs(fract(wall.x*64.)-.5),abs(fract(wall.y*64.)-.5)); float gridLine=1.-smoothstep(0.,.02,grid);
-vec2 crossUv=abs(fract(wall*8.)-.5)*vec2(uAspect,1.);
-float thinX=1.-smoothstep(.004,.012,crossUv.x),thinY=1.-smoothstep(.004,.012,crossUv.y);
-float longX=1.-smoothstep(.028,.04,crossUv.x),longY=1.-smoothstep(.028,.04,crossUv.y);
-float cross=max(thinX*longY,longX*thinY);
+float cross=plusMark(wall*8.);
 col+=vec3(.05,.06,.08)*(gridLine*.2+cross*.3);
 vec2 sg=wall+vec2(uTime*.018,0.); sg.y+=sin(sg.x*5.+uTime*.7)*.018; sg.x+=sin(sg.y*4.-uTime*.5)*.01;
 float sGrid=1.-smoothstep(0.,.02,min(abs(fract(sg.x*64.)-.5),abs(fract(sg.y*64.)-.5)));
-vec2 sCross=abs(fract(sg*8.)-.5)*vec2(uAspect,1.);
-float sc=max((1.-smoothstep(.004,.012,sCross.x))*(1.-smoothstep(.028,.04,sCross.y)),(1.-smoothstep(.028,.04,sCross.x))*(1.-smoothstep(.004,.012,sCross.y)));
+float sc=plusMark(sg*8.);
 col=mix(col,vec3(.012,.018,.022)+vec3(.15,.2,.22)*(sGrid*.25+sc*.7),uServices);
 // Pigment glow from the fluid field.
 vec3 pigment=texture2D(uInk,clamp(uv,vec2(.001),vec2(.999))).rgb;
@@ -119,8 +116,7 @@ float indigoMix=smoothstep(.02,.26,uLight)*(1.-uServices); vec3 indigo=vec3(.035
 vec3 lightCol=vec3(.843,.859,.863); col=mix(col,lightCol,lightWipe);
 vec2 pg=vec2((uv.x-.5)*uAspect,uv.y+uScroll*3.)*vec2(16.,16.)+v*1.5;
 float pLine=1.-smoothstep(0.,.04,min(abs(fract(pg.x)-.5),abs(fract(pg.y)-.5)));
-vec2 pc=abs(fract(pg/4.)-.5)*4.;
-float pCross=max((1.-smoothstep(.02,.05,pc.x))*(1.-smoothstep(.22,.28,pc.y)),(1.-smoothstep(.22,.28,pc.x))*(1.-smoothstep(.02,.05,pc.y)));
+float pCross=plusMark(pg/4.);
 col=mix(col,vec3(.42,.45,.47),clamp(lightWipe*(pLine*.07+pCross*.3),0.,.35));
 float vignette=1.-smoothstep(.2,.85,length((uv-.5)*vec2(.9,1.))); col*=mix(mix(.45,1.,vignette),1.,uLight);
 col=mix(col,vec3(.006,.008,.012),uContact*.98); col+=vec3(.0,.03,.036)*(1.-smoothstep(0.,.75,length((uv-.5)*vec2(1.,1.7))))*uContact;
@@ -296,13 +292,13 @@ vFull=w;
 export const serviceGridFragment = `precision highp float; varying vec2 vUv; varying float vShade;
 uniform float uTime,uScroll,uServiceIn,uOpacity; uniform vec2 uGrid;
 void main(){
-vec2 g=abs(fract(vUv*uGrid)-.5);
-vec2 px=fwidth(vUv*uGrid);
-float line=max(1.-smoothstep(0.,px.x*1.2,.5-g.x),1.-smoothstep(0.,px.y*1.2,.5-g.y));
 vec2 c=vUv; c.x+=uTime*.01+uScroll*.3+uServiceIn*.2;
-vec2 cf=(fract(c*vec2(15.,10.))-.5)*vec2(15.,10.)/vec2(15.,10.)*vec2(1.5,1.);
-vec2 ac=abs(fract(c*vec2(15.,10.))-.5)*vec2(1.5,1.);
-float cross=max(step(ac.x,.006)*step(ac.y,.06),step(ac.y,.006)*step(ac.x,.06));
+vec2 g=abs(fract(c*uGrid)-.5);
+vec2 px=fwidth(c*uGrid);
+float line=max(1.-smoothstep(0.,px.x*1.2,.5-g.x),1.-smoothstep(0.,px.y*1.2,.5-g.y));
+vec2 cc=c*uGrid/5.;
+vec2 d=abs(fract(cc+.5)-.5)/max(fwidth(cc),vec2(1e-4));
+float cross=max(step(d.x,.6)*step(d.y,9.),step(d.y,.6)*step(d.x,9.));
 float a=line*.08+cross*.34;
 gl_FragColor=vec4(vec3(1.),a*uOpacity); }`;
 

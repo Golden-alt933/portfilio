@@ -558,7 +558,22 @@ body:has(.works-index-page) {
 /* Services chrome only appears once the scene has switched to services, so
    its heading never sits over the pale vision chapter. */
 .immersive-services-stage {
-  opacity: var(--scene-services-mix, 1);
+  opacity: calc(var(--scene-services-mix, 1) * (1 - min(1, var(--service-exit, 0) * 5)));
+}
+.immersive-exit-spacer {
+  height: 250svh;
+}
+.immersive-home.is-static .immersive-exit-spacer {
+  height: 0;
+}
+/* Finale chrome only appears once the finale has taken over. */
+.immersive-contact .immersive-index,
+.immersive-contact-copy {
+  opacity: var(--scene-contact-mix, 1);
+}
+.immersive-home.is-static .immersive-contact .immersive-index,
+.immersive-home.is-static .immersive-contact-copy {
+  opacity: 1;
 }
 .immersive-home.is-static .immersive-services-stage {
   opacity: 1;

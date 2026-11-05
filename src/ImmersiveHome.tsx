@@ -301,6 +301,10 @@ export default function ImmersiveHome() {
       const serviceListIn = clamp(
         (scroll - (metrics[4].start - vh * 0.35)) / (vh * 0.75),
       );
+      // Exit room between services and the finale (about 2.5 screens).
+      const serviceExit = clamp(
+        (scroll - metrics[4].end) / Math.max(1, metrics[5].start - metrics[4].end),
+      );
       const finaleProgress = smooth(
         (scroll - metrics[5].start) /
           Math.max(1, metrics[5].end - metrics[5].start - vh),
@@ -344,6 +348,7 @@ export default function ImmersiveHome() {
         serviceRotate,
         serviceScreenIn,
         serviceListIn,
+        serviceExit,
       };
       story.dataset.workVisibility = workVisibility.toFixed(3);
       story.dataset.lightMix = lightMix.toFixed(3);
@@ -441,9 +446,10 @@ export default function ImmersiveHome() {
           (i === 0 && offset < 0) || (i === services.length - 1 && offset > 0)
             ? 0
             : Math.abs(offset);
+        // Copy holds fully across most of each chapter; short crossfades.
         const visibility = reducedMotion
           ? 1
-          : smooth(1 - (held - 0.3) / 0.2);
+          : smooth(1 - (held - 0.4) / 0.1);
         story.style.setProperty(`--service-${i}`, visibility.toFixed(3));
         story.style.setProperty(
           `--service-${i}-offset`,
@@ -455,6 +461,7 @@ export default function ImmersiveHome() {
         servicesProgress.toFixed(3),
       );
       // Copy fades while the last service screen wipes out to full frame.
+      story.style.setProperty("--service-exit", serviceExit.toFixed(3));
       story.style.setProperty(
         "--service-end",
         (reducedMotion ? 0 : smooth((servicesProgress - 0.86) / 0.08)).toFixed(3),
@@ -885,7 +892,7 @@ export default function ImmersiveHome() {
         </span>
       </section>
 
-      {/* Extra scroll room for the dive into the rainbow side of the R. */}
+      {/* Extra scroll room for the turn into the rainbow side of the R. */}
       <div className="immersive-portal-spacer" aria-hidden="true" />
 
       <section
@@ -946,6 +953,9 @@ export default function ImmersiveHome() {
           ))}
         </div>
       </section>
+
+      {/* Scroll room for the screen to shrink back into the R. */}
+      <div className="immersive-exit-spacer" aria-hidden="true" />
 
       <section
         className="immersive-screen immersive-contact"

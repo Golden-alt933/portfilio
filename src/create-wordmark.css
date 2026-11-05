@@ -30,15 +30,15 @@
   stroke-dasharray: 1;
   stroke-dashoffset: calc(1 - var(--guide-progress));
   vector-effect: non-scaling-stroke;
-  opacity: calc(0.34 * (1 - clamp(0, calc((var(--finale-progress, 0) - 0.72) * 3.6), 1)));
+  opacity: calc(0.5 * (1 - clamp(0, calc((var(--finale-progress, 0) - 0.72) * 3.6), 1)));
 }
 /* The grid closes in from the sides: horizontal guides slide in from
    alternating edges, verticals drop in. */
 .create-wordmark__guides path[data-kind="h"] {
-  transform: translateX(calc((1 - var(--guide-progress)) * 900px * (var(--guide-order) - 3) / 3));
+  transform: translateX(calc((1 - var(--guide-progress)) * 1400px * (var(--guide-order) - 3) / 3));
 }
 .create-wordmark__guides path[data-kind="v"] {
-  transform: translateX(calc((1 - var(--guide-progress)) * (var(--guide-order) - 3) * 220px));
+  transform: translateX(calc((1 - var(--guide-progress)) * (var(--guide-order) - 3) * 380px));
 }
 .create-wordmark__guides path[data-kind="c"],
 .create-wordmark__guides path[data-kind="d"] {

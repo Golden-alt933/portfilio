@@ -111,7 +111,17 @@ export class FluidField {
       float w=smoothstep(0.01+0.1*min(0.5,pv),0.0,length(d));
       vec2 power=uImpulse*30.0; if(aspect<1.0){ power.x/=aspect; } else { power.y*=aspect; }
       power=clamp(power,vec2(-2.0),vec2(2.0));
-      v+=w*power; gl_FragColor=vec4(clamp(v,vec2(-2.0),vec2(2.0))*uEnabled,0.0,1.0); }`,
+      v+=w*power;
+      // Vorticity confinement (curl 0.02, as the reference) keeps it swirling.
+      vec2 tx=vec2(uTexel.x,0.0), ty=vec2(0.0,uTexel.y);
+      float cC=texture2D(uPrev,vUv+tx).y-texture2D(uPrev,vUv-tx).y-texture2D(uPrev,vUv+ty).x+texture2D(uPrev,vUv-ty).x;
+      float cL=texture2D(uPrev,vUv).y-texture2D(uPrev,vUv-2.0*tx).y-texture2D(uPrev,vUv-tx+ty).x+texture2D(uPrev,vUv-tx-ty).x;
+      float cR=texture2D(uPrev,vUv+2.0*tx).y-texture2D(uPrev,vUv).y-texture2D(uPrev,vUv+tx+ty).x+texture2D(uPrev,vUv+tx-ty).x;
+      float cB=texture2D(uPrev,vUv+tx-ty).y-texture2D(uPrev,vUv-tx-ty).y-texture2D(uPrev,vUv).x+texture2D(uPrev,vUv-2.0*ty).x;
+      float cT=texture2D(uPrev,vUv+tx+ty).y-texture2D(uPrev,vUv-tx+ty).y-texture2D(uPrev,vUv+2.0*ty).x+texture2D(uPrev,vUv).x;
+      vec2 force=0.5*vec2(abs(cT)-abs(cB),abs(cR)-abs(cL)); force/=length(force)+0.0001; force*=0.02*cC; force.y*=-1.0;
+      v+=force*(uDt*60.0);
+      gl_FragColor=vec4(clamp(v,vec2(-2.0),vec2(2.0))*uEnabled,0.0,1.0); }`,
     });
     this.divergenceMaterial = new THREE.ShaderMaterial({
       uniforms: {

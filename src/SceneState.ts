@@ -38,6 +38,8 @@ export interface SceneState {
   serviceScreenIn: number;
   /** Services sheet arrival (bend/swirl in). */
   serviceListIn: number;
+  /** Scroll room after services: the screen returns into the R. */
+  serviceExit: number;
   /** Local progress through the services chapters. */
   servicesProgress: number;
 }
@@ -69,5 +71,6 @@ export function initialSceneState(): SceneState {
     serviceRotate: 0,
     serviceScreenIn: 0,
     serviceListIn: 0,
+    serviceExit: 0,
   };
 }
