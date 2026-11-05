@@ -782,6 +782,9 @@ export default function HeroScene({
     const userRot = { x: 0, y: 0 };
     const faceWorld = new THREE.Vector3();
     const lookTarget = new THREE.Vector3();
+    const faceNormal = new THREE.Vector3();
+    const zoomTarget = new THREE.Vector3();
+    const baseTarget = new THREE.Vector3();
     const choreography = new SceneChoreography();
     const resize = () => {
       const rect = holder!.getBoundingClientRect();
@@ -918,7 +921,6 @@ export default function HeroScene({
       const diveTurn = visionRotate;
       // The zoom releases while the rainbow still covers the frame, so the
       // camera is back in place by the time services is revealed.
-      const diveZoom = 0;
       // Pale ends only once the side screen fills the frame.
       const palePhase =
         paleFlatten * (1 - THREE.MathUtils.smoothstep(serviceRotate, 0.93, 1)) * (inExit ? 0 : 1);
@@ -1027,8 +1029,7 @@ export default function HeroScene({
             ? selectedPoster.image.width / selectedPoster.image.height
             : 1200 / 760;
       bgMaterial.uniforms.uPortalMedia.value = selectedTexture;
-      bgMaterial.uniforms.uPortalReveal.value =
-        portalReveal * (1 - contactMix) * (1 - diveTurn * 0.85);
+      bgMaterial.uniforms.uPortalReveal.value = 0;
       bgMaterial.uniforms.uPortalIsVideo.value = videoReady ? 1 : 0;
       bgMaterial.uniforms.uPortalAspect.value = mediaAspect;
       // Video wall during the work track; the wall scrolls with the page.
@@ -1081,20 +1082,26 @@ export default function HeroScene({
       const desiredY = reducedRef.current ? 0 : pointer.ndcY * 0.64 * drift;
       const cameraTargetZ =
         (mobile ? 11.8 : 10.5) - cameraApproach * (mobile ? 3.4 : 4.6) - portalPulse * 1.2;
-      // While diving, steer toward the rainbow face (last frame's position).
+      // Zoom into the R's side face instead of stretching the letter: the
+      // camera swings onto the face's normal and closes in until the rainbow
+      // screen fills the frame. The exit runs the same path backwards.
       displayPlane.getWorldPosition(faceWorld);
-      const zoomEase = diveZoom * diveZoom * (3 - 2 * diveZoom);
-      const diveZ = THREE.MathUtils.lerp(cameraTargetZ, faceWorld.z + 0.28, zoomEase);
-      const diveX = THREE.MathUtils.lerp(desiredX, faceWorld.x, zoomEase);
-      const diveY = THREE.MathUtils.lerp(desiredY, faceWorld.y, zoomEase);
-      const follow = Math.min(1, dt * (2.5 + diveZoom * 9));
-      camera.position.z += (diveZ - camera.position.z) * follow;
-      camera.position.x += (diveX - camera.position.x) * Math.min(1, dt * (3 + diveZoom * 9));
-      camera.position.y += (diveY - camera.position.y) * Math.min(1, dt * (3 + diveZoom * 9));
-      lookTarget.set(0, 0, 0).lerp(
-        faceWorld.clone().setZ(faceWorld.z - 2),
-        zoomEase,
-      );
+      faceNormal.set(-1, 0, 0).applyQuaternion(letter.quaternion).normalize();
+      const zoom = THREE.MathUtils.smoothstep(serviceRotate, 0.04, 0.96);
+      const swing = THREE.MathUtils.smoothstep(zoom, 0, 0.45);
+      const closeIn = zoom * zoom * (3 - 2 * zoom);
+      const zoomDistance = cameraTargetZ * Math.pow(0.6 / cameraTargetZ, closeIn);
+      zoomTarget.copy(faceWorld).addScaledVector(faceNormal, zoomDistance);
+      baseTarget.set(desiredX, desiredY, cameraTargetZ).lerp(zoomTarget, swing);
+      if (zoom > 0.001) {
+        // Scroll-scrubbed: follow exactly so the face always lands centred.
+        camera.position.copy(baseTarget);
+      } else {
+        camera.position.z += (cameraTargetZ - camera.position.z) * Math.min(1, dt * 2.5);
+        camera.position.x += (desiredX - camera.position.x) * Math.min(1, dt * 3);
+        camera.position.y += (desiredY - camera.position.y) * Math.min(1, dt * 3);
+      }
+      lookTarget.set(0, 0, 0).lerp(faceWorld, swing);
       camera.lookAt(lookTarget);
       const letterScale =
         1.12 - workMix * 0.08 - servicesMix * 0.05 - transitionMix * 0.06;
@@ -1148,7 +1155,7 @@ export default function HeroScene({
       rMaterial.uniforms.uReveal.value = reveal;
       rMaterial.uniforms.uServices.value =
         servicesMix * (1 - contactMix) * (1 - THREE.MathUtils.smoothstep(exit, 0, 0.25));
-      rMaterial.uniforms.uMorph.value = serviceRotate;
+      rMaterial.uniforms.uMorph.value = 0;
       rMaterial.uniforms.uContact.value = contactMix * THREE.MathUtils.smoothstep(finaleProgress, 0.78, 1);
       rMaterial.uniforms.uDepthScale.value =
         1 - palePhase * 0.97 * (1 - diveTurn);
@@ -1159,7 +1166,7 @@ export default function HeroScene({
       displayMaterial.uniforms.uOpacity.value = (1 - visibleService) * (1 - contactMix);
       displayMaterial.uniforms.uTime.value = now * 0.001;
       displayMaterial.uniforms.uVision.value = visionRotate;
-      displayMaterial.uniforms.uMorph.value = serviceRotate;
+      displayMaterial.uniforms.uMorph.value = THREE.MathUtils.smoothstep(serviceRotate, 0.9, 1);
       displayMaterial.uniforms.uServiceIn.value = serviceScreenIn;
       displayMaterial.uniforms.uServiceTex.value = serviceScene.target.texture;
       displayMaterial.uniforms.uRes.value.set(
