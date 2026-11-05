@@ -85,16 +85,60 @@ function drawPoster(project: Project, canvas: HTMLCanvasElement) {
   ctx.strokeRect(38, 38, 1124, 684);
 }
 
+/**
+ * CREATE is drawn at 4K, slightly emboldened, then composited so the centre
+ * stays sharp while both ends soften into a blur.
+ */
+function paintCreate(canvas: HTMLCanvasElement) {
+  canvas.width = 4096;
+  canvas.height = 1040;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  const sharp = document.createElement("canvas");
+  sharp.width = canvas.width;
+  sharp.height = canvas.height;
+  const sharpCtx = sharp.getContext("2d")!;
+  drawCreateWordmark(sharpCtx, sharp.width, sharp.height, 7);
+
+  const fade = (inner: CanvasRenderingContext2D, centre: boolean) => {
+    const gradient = inner.createLinearGradient(0, 0, canvas.width, 0);
+    const solid = centre ? "#000" : "transparent";
+    const clear = centre ? "transparent" : "#000";
+    gradient.addColorStop(0, clear);
+    gradient.addColorStop(0.1, solid);
+    gradient.addColorStop(0.9, solid);
+    gradient.addColorStop(1, clear);
+    inner.globalCompositeOperation = "destination-in";
+    inner.fillStyle = gradient;
+    inner.fillRect(0, 0, canvas.width, canvas.height);
+    inner.globalCompositeOperation = "source-over";
+  };
+
+  const blurred = document.createElement("canvas");
+  blurred.width = canvas.width;
+  blurred.height = canvas.height;
+  const blurredCtx = blurred.getContext("2d")!;
+  blurredCtx.filter = "blur(9px)";
+  blurredCtx.drawImage(sharp, 0, 0);
+  blurredCtx.filter = "none";
+  fade(blurredCtx, false);
+  fade(sharpCtx, true);
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(blurred, 0, 0);
+  ctx.drawImage(sharp, 0, 0);
+}
+
 function wordmarkTexture(text: string, canvas: HTMLCanvasElement) {
+  if (text === "CREATE") {
+    paintCreate(canvas);
+    return;
+  }
   canvas.width = 2048;
   canvas.height = 520;
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  if (text === "CREATE") {
-    drawCreateWordmark(ctx, canvas.width, canvas.height);
-    return;
-  }
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   if (text === "WORKS") {
@@ -114,7 +158,9 @@ function wordmarkTexture(text: string, canvas: HTMLCanvasElement) {
 function makeCanvasTexture(canvas: HTMLCanvasElement) {
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
-  texture.anisotropy = 4;
+  texture.anisotropy = 8;
+  texture.generateMipmaps = true;
+  texture.minFilter = THREE.LinearMipmapLinearFilter;
   return texture;
 }
 
@@ -216,6 +262,7 @@ export default function HeroScene({
         uReveal: { value: 0 },
         uPortalTravel: { value: 0 },
         uRipple: { value: 0 },
+        uRainbow: { value: 0 },
       },
       vertexShader: fullscreenVertex,
       fragmentShader: compositeFragment,
@@ -254,6 +301,8 @@ export default function HeroScene({
         uPortalReveal: { value: 0 },
         uPortalIsVideo: { value: 0 },
         uPortalAspect: { value: 1200 / 760 },
+        uWorksMap: { value: null },
+        uWorks: { value: 0 },
       },
       vertexShader: fullscreenVertex,
       fragmentShader: backgroundFragment,
@@ -290,16 +339,7 @@ export default function HeroScene({
     };
     paintWorks();
     document.fonts?.ready.then(paintWorks).catch(() => undefined);
-    const worksMat = new THREE.MeshBasicMaterial({
-      map: worksTexture,
-      transparent: true,
-      opacity: 0,
-      depthWrite: false,
-      toneMapped: false,
-    });
-    const worksPlane = new THREE.Mesh(new THREE.PlaneGeometry(1.94, 0.493), worksMat);
-    worksPlane.position.set(0, 0.02, -3.4);
-    bgScene.add(worksPlane);
+    bgMaterial.uniforms.uWorksMap.value = worksTexture;
 
     // Capture an original procedural studio environment once for a stable reflection source.
     const room = new RoomEnvironment();
@@ -421,7 +461,21 @@ export default function HeroScene({
       new THREE.PlaneGeometry(0.42, 4.05),
       displayMaterial,
     );
-    displayPlane.position.set(-1.18, 0, 0.34);
+    // The rainbow sits on the R's actual left side face, so it is only seen
+    // once the letter turns side-on during the dive into services.
+    rGeometry.computeBoundingBox();
+    const letterBox = rGeometry.boundingBox!;
+    displayPlane.geometry.dispose();
+    displayPlane.geometry = new THREE.PlaneGeometry(
+      letterBox.max.z - letterBox.min.z,
+      letterBox.max.y - letterBox.min.y,
+    );
+    displayPlane.position.set(
+      letterBox.min.x - 0.004,
+      (letterBox.max.y + letterBox.min.y) / 2,
+      (letterBox.max.z + letterBox.min.z) / 2,
+    );
+    displayPlane.rotation.y = -Math.PI / 2;
     displayPlane.renderOrder = 2;
     letter.add(displayPlane);
 
@@ -683,6 +737,8 @@ export default function HeroScene({
     let frame = 0;
     let lastTime = performance.now();
     const userRot = { x: 0, y: 0 };
+    const faceWorld = new THREE.Vector3();
+    const lookTarget = new THREE.Vector3();
     const choreography = new SceneChoreography();
     const resize = () => {
       const rect = holder!.getBoundingClientRect();
@@ -791,10 +847,26 @@ export default function HeroScene({
         cameraDive,
         reveal,
       } = motion;
-      const palePhase = paleFlatten * (1 - portalTravel);
+      // Rainbow dive: the R regains depth and turns its rainbow side to the
+      // camera, the camera flies into that face until it fills the frame, and
+      // services take over underneath before the rainbow clears.
+      const diveTurn =
+        THREE.MathUtils.smoothstep(portalTravel, 0.04, 0.42) * (1 - contactMix);
+      // The zoom releases while the rainbow still covers the frame, so the
+      // camera is back in place by the time services is revealed.
+      const diveZoom =
+        THREE.MathUtils.smoothstep(portalTravel, 0.4, 0.9) *
+        (1 - THREE.MathUtils.smoothstep(servicesMix, 0, 0.45)) *
+        (1 - contactMix);
+      const diveCover =
+        THREE.MathUtils.smoothstep(portalTravel, 0.7, 0.86) *
+        (1 - THREE.MathUtils.smoothstep(servicesMix, 0.2, 1)) *
+        (1 - contactMix);
+      const palePhase =
+        paleFlatten * (1 - THREE.MathUtils.smoothstep(portalTravel, 0.8, 0.92));
       const light = Math.max(lightMix, palePhase) * (1 - contactMix);
-      const portalPulse = Math.sin(portalTravel * Math.PI) * (1 - contactMix);
-      const cameraApproach = Math.max(0, cameraDive - portalTravel * 1.8) + portalPulse * 0.85;
+      const portalPulse = 0;
+      const cameraApproach = Math.max(0, cameraDive - portalTravel * 1.8);
       bgMaterial.uniforms.uTime.value = now * 0.001;
       bgMaterial.uniforms.uLight.value = light;
       bgMaterial.uniforms.uContact.value = contactMix;
@@ -810,11 +882,9 @@ export default function HeroScene({
         (1 - servicesMix) *
         THREE.MathUtils.smoothstep(reveal, 0.72, 0.95);
       const worksTitle = s.worksTitle ?? 0;
-      worksMat.opacity = worksTitle * 0.82 * (1 - lightMix);
-      worksPlane.visible = worksMat.opacity > 0.003;
-      const worksScale = 1.22 - worksTitle * 0.22 + heroExit * 0.08;
-      worksPlane.scale.set(worksScale * (width / height < 1 ? 1.6 : 1), worksScale, 1);
-      worksPlane.position.x = (1 - worksTitle) * 0.18 * (workEntry > 0.5 ? -1 : 1);
+      // Signed travel lets the title slide in from one side and out the other.
+      bgMaterial.uniforms.uWorks.value =
+        worksTitle * (1 - lightMix) * (workEntry > 0.5 ? -1 : 1);
       fluid.setReveal(reveal);
       fluid.update(dt);
       bgMaterial.uniforms.uFluid.value = fluid.velocity.texture;
@@ -860,7 +930,8 @@ export default function HeroScene({
             ? selectedPoster.image.width / selectedPoster.image.height
             : 1200 / 760;
       bgMaterial.uniforms.uPortalMedia.value = selectedTexture;
-      bgMaterial.uniforms.uPortalReveal.value = portalReveal * (1 - contactMix);
+      bgMaterial.uniforms.uPortalReveal.value =
+        portalReveal * (1 - contactMix) * (1 - diveTurn * 0.85);
       bgMaterial.uniforms.uPortalIsVideo.value = videoReady ? 1 : 0;
       bgMaterial.uniforms.uPortalAspect.value = mediaAspect;
       // Refraction samples an independent background target, avoiding feedback from the letter/portal.
@@ -906,11 +977,21 @@ export default function HeroScene({
       const desiredY = reducedRef.current ? 0 : pointer.ndcY * 0.64 * drift;
       const cameraTargetZ =
         (mobile ? 11.8 : 10.5) - cameraApproach * (mobile ? 3.4 : 4.6) - portalPulse * 1.2;
-      camera.position.z +=
-        (cameraTargetZ - camera.position.z) * Math.min(1, dt * 2.5);
-      camera.position.x += (desiredX - camera.position.x) * Math.min(1, dt * 3);
-      camera.position.y += (desiredY - camera.position.y) * Math.min(1, dt * 3);
-      camera.lookAt(0, 0, 0);
+      // While diving, steer toward the rainbow face (last frame's position).
+      displayPlane.getWorldPosition(faceWorld);
+      const zoomEase = diveZoom * diveZoom * (3 - 2 * diveZoom);
+      const diveZ = THREE.MathUtils.lerp(cameraTargetZ, faceWorld.z + 0.28, zoomEase);
+      const diveX = THREE.MathUtils.lerp(desiredX, faceWorld.x, zoomEase);
+      const diveY = THREE.MathUtils.lerp(desiredY, faceWorld.y, zoomEase);
+      const follow = Math.min(1, dt * (2.5 + diveZoom * 9));
+      camera.position.z += (diveZ - camera.position.z) * follow;
+      camera.position.x += (diveX - camera.position.x) * Math.min(1, dt * (3 + diveZoom * 9));
+      camera.position.y += (diveY - camera.position.y) * Math.min(1, dt * (3 + diveZoom * 9));
+      lookTarget.set(0, 0, 0).lerp(
+        faceWorld.clone().setZ(faceWorld.z - 2),
+        zoomEase,
+      );
+      camera.lookAt(lookTarget);
       const letterScale =
         1.12 - workMix * 0.08 - servicesMix * 0.05 - transitionMix * 0.06;
       const finaleShift = THREE.MathUtils.smoothstep(finaleProgress, 0, 0.45);
@@ -920,7 +1001,10 @@ export default function HeroScene({
       userRot.x += (sceneTweaks.userRotX * userWeight - userRot.x) * Math.min(1, dt * 6);
       userRot.y += (sceneTweaks.userRotY * userWeight - userRot.y) * Math.min(1, dt * 6);
       letter.rotation.x = motion.rotationX * (1 - contactMix) + userRot.x;
-      letter.rotation.y = motion.rotationY * (1 - palePhase) * (1 - contactMix) + portalPulse * Math.PI * 0.5 + userRot.y;
+      letter.rotation.y =
+        motion.rotationY * (1 - palePhase) * (1 - contactMix) * (1 - diveTurn) +
+        diveTurn * (1 - servicesMix) * Math.PI * 0.5 +
+        userRot.y;
       const q = letter.quaternion;
       sceneTweaks.quaternion = [q.x, q.y, q.z, q.w];
       holder!.dataset.rotationX = motion.rotationX.toFixed(3);
@@ -953,22 +1037,26 @@ export default function HeroScene({
         1.51 - sceneTweaks.dispersion,
       );
       rMaterial.uniforms.uTint.value.set(...sceneTweaks.tint);
-      rMaterial.uniforms.uLight.value = light;
+      rMaterial.uniforms.uLight.value = light * (1 - diveTurn);
       rMaterial.uniforms.uReveal.value = reveal;
       rMaterial.uniforms.uServices.value = servicesMix * (1 - contactMix);
       rMaterial.uniforms.uContact.value = contactMix * THREE.MathUtils.smoothstep(finaleProgress, 0.78, 1);
       rMaterial.uniforms.uDepthScale.value =
-        (0.035 + 0.965 * THREE.MathUtils.smoothstep(reveal, 0.08, 0.85)) * (1 - palePhase * 0.97);
+        (0.035 + 0.965 * THREE.MathUtils.smoothstep(reveal, 0.08, 0.85)) *
+        (1 - palePhase * 0.97 * (1 - diveTurn));
+      // The side face tracks the letter's live extrusion depth.
+      displayPlane.scale.x = Math.max(0.02, rMaterial.uniforms.uDepthScale.value);
       rMaterial.uniforms.uRipple.value =
         Math.sin(reveal * Math.PI) * (0.3 + (1 - reveal) * 0.7);
-      outlineMaterial.opacity = light;
+      outlineMaterial.opacity = light * (1 - diveTurn);
       displayMaterial.uniforms.uOpacity.value =
-        THREE.MathUtils.smoothstep(portalTravel, 0.02, 0.35) *
-        (1 - portalReveal) * (1 - contactMix);
+        THREE.MathUtils.smoothstep(portalTravel, 0.02, 0.3) *
+        (1 - servicesMix) * (1 - contactMix) / 0.85;
       displayMaterial.uniforms.uTime.value = now * 0.001;
       const portalAmount = portalReveal * (1 - contactMix);
       // The DOM service chapters carry their own media, so the portal recedes.
-      serviceMaterial.uniforms.uOpacity.value = portalAmount * 0.55 * (1 - servicesMix * 0.93);
+      serviceMaterial.uniforms.uOpacity.value =
+        portalAmount * 0.04 * THREE.MathUtils.smoothstep(servicesMix, 0.6, 1);
       serviceMaterial.uniforms.uMap.value = selectedPoster;
       serviceMaterial.uniforms.uMedia.value = selectedTexture;
       serviceMaterial.uniforms.uMediaMix.value = 1;
@@ -992,6 +1080,7 @@ export default function HeroScene({
       compositeMaterial.uniforms.uReveal.value = reveal;
       compositeMaterial.uniforms.uPortalTravel.value = portalTravel;
       compositeMaterial.uniforms.uRipple.value = Math.max(Math.sin(reveal * Math.PI), portalPulse);
+      compositeMaterial.uniforms.uRainbow.value = diveCover;
       renderer.setRenderTarget(null);
       renderer.clear(true, true, true);
       renderer.render(compositeScene, compositeCamera);
@@ -1032,9 +1121,7 @@ export default function HeroScene({
       typePlane.geometry.dispose();
       typeMat.dispose();
       createTexture.dispose();
-      worksMat.dispose();
       worksTexture.dispose();
-      worksPlane.geometry.dispose();
       rGeometry.dispose();
       rMaterial.dispose();
       contactPlane.geometry.dispose();

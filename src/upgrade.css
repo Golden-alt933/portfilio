@@ -10,46 +10,6 @@
   translate: -50% 0;
 }
 
-.immersive-updates {
-  position: absolute;
-  z-index: 5;
-  right: 5vw;
-  top: 25%;
-  width: min(330px, 26vw);
-  padding: 12px 14px 4px;
-  border: 1px solid #ffffff14;
-  border-radius: 6px;
-  background: #07080acc;
-  backdrop-filter: blur(14px);
-  opacity: calc((1 - var(--hero-exit, 0)) * var(--portfolio-hero-meta-reveal, 1));
-  transform: translateY(calc(var(--hero-exit, 0) * -24px));
-}
-.immersive-updates h2 {
-  margin-bottom: 10px;
-  color: #8d918e;
-  font-weight: 400;
-}
-.immersive-updates ol {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-.immersive-updates li {
-  padding: 11px 0 12px;
-  border-top: 1px solid #ffffff1f;
-}
-.immersive-updates time {
-  display: block;
-  color: #9fa39f;
-  font-size: 9px;
-}
-.immersive-updates p {
-  margin-top: 4px;
-  color: #e9eae7;
-  font-size: 13px;
-  line-height: 1.45;
-  letter-spacing: -0.01em;
-}
 /* The hero note sits lower so the news column has the right edge. */
 .immersive-hero-note {
   bottom: 9%;
@@ -275,6 +235,14 @@ body[data-intro-stage="revealing"] .material-panel {
   color: var(--ih-lime);
   font: 10px/1.5 var(--ih-mono);
   letter-spacing: 0.04em;
+}
+
+/* ---------- Rainbow dive ---------- */
+.immersive-portal-spacer {
+  height: 110svh;
+}
+.immersive-home.is-static .immersive-portal-spacer {
+  height: 0;
 }
 
 /* ---------- Services ---------- */
@@ -517,19 +485,35 @@ body[data-intro-stage="revealing"] .material-panel {
 body:has(.works-index-page) {
   background: #e9eae6;
 }
-body:has(.works-index-page) .site-header.shell-header {
-  color: #141615;
+
+
+/* ---------- Auto-contrast ----------
+   Fixed chrome is white and blends with "difference": over dark areas it
+   stays white, over pale areas (or a white card) it flips to black, per pixel. */
+.site-header.shell-header:not(.menu-is-open),
+.chapter-rail {
+  mix-blend-mode: difference;
 }
-body:has(.works-index-page) .shell-header .nav .contact-link {
-  border-color: #14161580;
+.site-header.shell-header:not(.menu-is-open) {
+  color: #fff;
+}
+.site-header.shell-header:not(.menu-is-open) .nav .contact-link {
+  border-color: #ffffffb3;
+}
+.chapter-rail {
+  color: #fff !important;
+}
+
+/* Services chrome only appears once the scene has switched to services, so
+   its heading never sits over the pale vision chapter. */
+.immersive-services-stage {
+  opacity: var(--scene-services-mix, 1);
+}
+.immersive-home.is-static .immersive-services-stage {
+  opacity: 1;
 }
 
 /* ---------- Responsive ---------- */
-@media (max-width: 1100px) {
-  .immersive-updates {
-    display: none;
-  }
-}
 @media (max-width: 1000px), (max-height: 620px) {
   .material-panel {
     display: none;

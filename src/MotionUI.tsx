@@ -175,6 +175,39 @@ const LOADER_MAX_WAIT_MS = 8_000;
 const DRAW_MIN_MS = 1_500;
 
 /** Original SVG construction reveal; waits for scene readiness, with an 8s escape hatch. */
+/** Matches .intro-loader__stage: width min(94vmin, 690px), 240 units wide. */
+function loaderFieldViewBox() {
+  const width = window.innerWidth;
+  const height = window.innerHeight;
+  const mobile = width <= 600;
+  const stage = Math.max(
+    220,
+    mobile
+      ? Math.min(width * 1.08, height * 0.78)
+      : Math.min(Math.min(width, height) * 0.94, 690),
+  );
+  const unit = stage / 240;
+  const centreY = mobile ? height * 0.45 : height / 2;
+  const x = 120 - width / 2 / unit;
+  const y = 120 - centreY / unit;
+  return `${x.toFixed(2)} ${y.toFixed(2)} ${(width / unit).toFixed(2)} ${(height / unit).toFixed(2)}`;
+}
+
+function diagonal(degrees: number, offsets: number[]) {
+  const radians = (degrees * Math.PI) / 180;
+  const dx = Math.cos(radians) * 1400;
+  const dy = -Math.sin(radians) * 1400;
+  const nx = Math.sin(radians);
+  const ny = Math.cos(radians);
+  return offsets
+    .map((offset) => {
+      const cx = 120 + nx * offset;
+      const cy = 120 + ny * offset;
+      return `M${(cx - dx).toFixed(1)} ${(cy - dy).toFixed(1)}L${(cx + dx).toFixed(1)} ${(cy + dy).toFixed(1)}`;
+    })
+    .join("");
+}
+
 export function IntroLoader({
   ready,
   failed = false,
@@ -189,6 +222,13 @@ export function IntroLoader({
   const revealStarted = useRef(false);
   const readyRef = useRef(ready);
   const gateStartedAt = useRef(0);
+  const [fieldViewBox, setFieldViewBox] = useState(loaderFieldViewBox);
+
+  useEffect(() => {
+    const resize = () => setFieldViewBox(loaderFieldViewBox());
+    window.addEventListener("resize", resize);
+    return () => window.removeEventListener("resize", resize);
+  }, []);
 
   useEffect(() => {
     callback.current = onComplete;
@@ -397,17 +437,25 @@ export function IntroLoader({
       aria-label="Constructing the portfolio mark"
       aria-live="polite"
     >
-      <svg className="intro-loader__field" viewBox="0 0 1600 900" preserveAspectRatio="none" fill="none" aria-hidden="true">
-        {[110, 225, 410, 450, 490, 675, 790].map((y) => (
-          <path key={`h${y}`} className="intro-loader__sweep" data-axis="x" d={`M-300 ${y}H1900`} />
+      {/* The field shares the stage's 240-unit coordinate system, centred on
+          the viewport, so every sweep passes through the R's own grid. */}
+      <svg
+        className="intro-loader__field"
+        viewBox={fieldViewBox}
+        fill="none"
+        aria-hidden="true"
+      >
+        {[-40, 40, 80, 120, 160, 200, 280].map((y) => (
+          <path key={`h${y}`} className="intro-loader__sweep" data-axis="x" d={`M-1400 ${y}H1640`} />
         ))}
-        {[140, 400, 690, 800, 910, 1200, 1460].map((x) => (
-          <path key={`v${x}`} className="intro-loader__sweep" data-axis="y" d={`M${x} -200V1100`} />
+        {[-120, 40, 80, 120, 160, 200, 360].map((x) => (
+          <path key={`v${x}`} className="intro-loader__sweep" data-axis="y" d={`M${x} -900V1140`} />
         ))}
-        <path className="intro-loader__sweep" data-axis="x" d="M-100 950L1450 -150M-60 950L1490 -150M-20 950L1530 -150" />
-        <path className="intro-loader__sweep" data-axis="y" d="M100 -150L1500 1050M125 -150L1525 1050" />
-        <path className="intro-loader__sweep" d="M510 450A290 290 0 1 1 1090 450A290 290 0 1 1 510 450M615 450A185 185 0 1 1 985 450" />
-        <path className="intro-loader__sweep" data-axis="x" d="M0 520H430M0 528H430M0 536H430M1170 372H1600M1170 380H1600M1170 388H1600" />
+        {/* Parallel diagonals through the centre at ±30°. */}
+        <path className="intro-loader__sweep" data-axis="x" d={diagonal(30, [0, 5, 10])} />
+        <path className="intro-loader__sweep" data-axis="y" d={diagonal(-30, [0, 5])} />
+        <path className="intro-loader__sweep" d="M34 120A86 86 0 1 1 206 120A86 86 0 1 1 34 120M2 120A118 118 0 1 1 238 120A118 118 0 1 1 2 120" />
+        <path className="intro-loader__sweep" data-axis="x" d="M-1400 146H-20M-1400 150H-20M-1400 154H-20M260 86H1640M260 90H1640M260 94H1640" />
       </svg>
       <div className="intro-loader__stage" aria-hidden="true">
         <svg className="intro-loader__svg" viewBox="0 0 240 240" fill="none">
@@ -430,7 +478,7 @@ export function IntroLoader({
             height="162"
             rx="1"
           />
-          <g transform="translate(120 120) scale(44 -44) translate(-0.15 0)">
+          <g transform="translate(120 120) scale(37 -37) translate(-0.15 0)">
             <path
               className="intro-loader__r-fill"
               fillRule="evenodd"

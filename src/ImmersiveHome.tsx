@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { profile, projects, services, updates } from "./content";
+import { profile, projects, services } from "./content";
 import MaterialPanel from "./MaterialPanel";
 import { ProjectVisual, ReelDialog } from "./Media";
 import { CreateWordmark } from "./CreateWordmark";
@@ -253,11 +253,12 @@ export default function ImmersiveHome() {
         (scroll - (metrics[2].start - vh * 0.8)) / (vh * 0.8),
       );
       const lightEnter = paleFlatten;
+      // Services only takes over at the very bottom of the rainbow dive.
       const lightExit =
-        1 - smooth((scroll - (metrics[4].start - vh * 0.8)) / (vh * 0.8));
+        1 - smooth((scroll - (metrics[4].start - vh * 0.2)) / (vh * 0.2));
       const lightMix = clamp(lightEnter * lightExit);
       const servicesMix =
-        smooth((scroll - (metrics[4].start - vh * 0.8)) / (vh * 0.8)) *
+        smooth((scroll - (metrics[4].start - vh * 0.2)) / (vh * 0.2)) *
         (1 - smooth((scroll - (metrics[5].start - vh * 0.8)) / (vh * 0.8)));
       const contactMix = smooth(
         (scroll - (metrics[5].start - vh * 0.8)) / (vh * 0.8),
@@ -635,19 +636,6 @@ export default function ImmersiveHome() {
             </a>
           )}
         </div>
-        <aside className="immersive-updates" aria-labelledby="updates-title">
-          <h2 id="updates-title" className="immersive-mono">
-            LATEST
-          </h2>
-          <ol>
-            {updates.map((item, index) => (
-              <li key={index}>
-                <time className="immersive-mono">{item.date}</time>
-                <p>{item.text}</p>
-              </li>
-            ))}
-          </ol>
-        </aside>
         <a className="immersive-scroll-hint immersive-mono" href="#work">
           <span>SCROLL TO ENTER</span>
           <ArrowDown size={15} />
@@ -862,6 +850,9 @@ export default function ImmersiveHome() {
           02—03 / DIRECTION
         </span>
       </section>
+
+      {/* Extra scroll room for the dive into the rainbow side of the R. */}
+      <div className="immersive-portal-spacer" aria-hidden="true" />
 
       <section
         className="immersive-services"

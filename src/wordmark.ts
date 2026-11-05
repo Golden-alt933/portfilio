@@ -14,6 +14,7 @@ export function drawCreateWordmark(
   ctx: CanvasRenderingContext2D,
   width: number,
   height: number,
+  embolden = 0,
 ) {
   const scale = Math.min((width * 0.94) / CREATE_WIDTH, (height * 0.8) / CREATE_HEIGHT);
   ctx.save();
@@ -23,7 +24,14 @@ export function drawCreateWordmark(
   for (const glyph of CREATE_GLYPHS) {
     ctx.save();
     ctx.translate(glyph.x, 0);
-    ctx.fill(new Path2D(glyph.path), "evenodd");
+    const path = new Path2D(glyph.path);
+    ctx.fill(path, "evenodd");
+    if (embolden > 0) {
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = embolden;
+      ctx.lineJoin = "miter";
+      ctx.stroke(path);
+    }
     ctx.restore();
   }
   ctx.restore();

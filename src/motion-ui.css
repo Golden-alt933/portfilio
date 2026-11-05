@@ -154,7 +154,7 @@ button:focus-visible .motion-slot__line--inverse,
 
 .intro-loader__meta {
   position: absolute;
-  inset: auto 24px max(30px, 6vh);
+  inset: auto 5vw max(30px, 6vh);
   display: flex;
   align-items: flex-end;
   justify-content: space-between;

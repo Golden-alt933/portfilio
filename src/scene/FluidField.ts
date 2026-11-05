@@ -31,7 +31,7 @@ export class FluidField {
   private dyeMaterial: THREE.ShaderMaterial;
   private pointer = new THREE.Vector2(0.5, 0.5);
   private impulse = new THREE.Vector2();
-  private pointerColor = new THREE.Color(0x8b6cff);
+  private pointerColor = new THREE.Color(0x3b7bff);
   private pointerDeposit = 0;
   private enabled: boolean;
   private resolution: THREE.Vector2;
@@ -105,7 +105,7 @@ export class FluidField {
       vertexShader: vertex,
       fragmentShader: `precision highp float; varying vec2 vUv; uniform sampler2D uPrev; uniform vec2 uPointer,uImpulse,uTexel; uniform float uEnabled,uDt;
       void main(){ vec2 v=texture2D(uPrev,vUv).rg; vec2 back=vUv-v*uTexel*2.0*(uDt*60.0); v=texture2D(uPrev,back).rg*pow(.99,uDt*60.0);
-      vec2 d=(vUv-uPointer)*vec2(1.0,uTexel.x/uTexel.y); float f=exp(-dot(d,d)/.0064); v+=uImpulse*f*30.0*(uDt*60.0); gl_FragColor=vec4(clamp(v,vec2(-2.0),vec2(2.0))*uEnabled,0.0,1.0); }`,
+      vec2 d=(vUv-uPointer)*vec2(1.0,uTexel.x/uTexel.y); float f=exp(-dot(d,d)/.0038); v+=uImpulse*f*30.0*(uDt*60.0); gl_FragColor=vec4(clamp(v,vec2(-2.0),vec2(2.0))*uEnabled,0.0,1.0); }`,
     });
     this.divergenceMaterial = new THREE.ShaderMaterial({
       uniforms: {
@@ -156,7 +156,7 @@ export class FluidField {
         vec2 backUv=clamp(vUv-velocity*uTexel*2.0*(uDt*60.0)-drift*(uDt*60.0),vec2(.001),vec2(.999));
         vec4 pigment=texture2D(uDye,backUv)*exp(-uDt*.72);
         vec2 pd=(vUv-uPointer)*vec2(1.0,uTexel.x/uTexel.y);
-        float pointerBlob=exp(-dot(pd,pd)/.0014)*uDeposit;
+        float pointerBlob=exp(-dot(pd,pd)/.0007)*uDeposit;
         pigment.rgb+=uColor*pointerBlob*.26;
         pigment.a+=pointerBlob*.48;
         for(int i=0;i<8;i++){ if(float(i)<uSplatCount){
@@ -210,7 +210,7 @@ export class FluidField {
       THREE.MathUtils.clamp(signedPower(dy * 2), -1, 1),
     );
     this.pointerDeposit = Math.min(1, Math.hypot(dx, dy) * 22);
-    this.pointerColor.setHSL((0.54 + x * 0.19 + y * 0.12) % 1, 0.86, 0.6);
+    this.pointerColor.setHSL(0.5 + ((x * 0.1 + y * 0.06 + 1) % 1) * 0.14, 0.86, 0.6);
   }
 
   setEnabled(enabled: boolean) {
@@ -234,13 +234,14 @@ export class FluidField {
   /** Queue a small pigment burst at normalized coordinates; dye transport follows the velocity field. */
   splat(x: number, y: number, dx: number, dy: number, strength = 1) {
     const angle = Math.atan2(dy, dx);
-    const hue = (0.56 + x * 0.17 + y * 0.1 + angle * 0.025 + 1) % 1;
+    // Blue-to-teal range only (no purple), matching the scene palette.
+    const hue = 0.5 + ((x * 0.09 + y * 0.05 + angle * 0.012 + 1) % 1) * 0.14;
     const amount = THREE.MathUtils.clamp(strength, 0.1, 2);
     this.splatQueue.push({
       x: THREE.MathUtils.clamp(x, 0.02, 0.98),
       y: THREE.MathUtils.clamp(y, 0.02, 0.98),
       strength: amount,
-      radius: 0.045 + amount * 0.022,
+      radius: 0.028 + amount * 0.014,
       angle,
       color: new THREE.Color().setHSL(hue, 0.9, 0.59),
     });

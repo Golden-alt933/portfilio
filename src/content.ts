@@ -34,13 +34,6 @@ export const profile = {
   showreelUrl: "",
   showreelPoster: "",
 };
-/** Short news lines for the hero. Newest first; replace with your own. */
-export const updates: { date: string; text: string }[] = [
-  { date: "2026.11", text: "Portfolio rebuilt around a live glass R and a curved scene." },
-  { date: "2026.11", text: "Sample projects shown. Real reels and builds are coming next." },
-  { date: "2026.10", text: "Taking on video editing and creative development work." },
-];
-
 /** Services chapters on the home page. `project` picks a visual by slug. */
 export const services = [
   {
