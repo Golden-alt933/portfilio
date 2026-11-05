@@ -286,6 +286,21 @@ export default function ImmersiveHome() {
         (scroll - metrics[4].start) /
           Math.max(1, metrics[4].end - metrics[4].start - vh),
       );
+      // Logo turn and service handoff, timed to the mission/vision chapters:
+      // a slight tilt while vision rises into view, the full turn across the
+      // scroll room after vision, the screen reveal, then the services sheet.
+      const visionRotate = smooth(
+        (scroll - (metrics[3].start - vh * 0.6)) / (vh * 0.75),
+      );
+      const serviceRotate = smooth(
+        (scroll - (metrics[4].start - vh * 1.55)) / (vh * 1.05),
+      );
+      const serviceScreenIn = clamp(
+        (scroll - (metrics[4].start - vh * 1.0)) / (vh * 0.85),
+      );
+      const serviceListIn = clamp(
+        (scroll - (metrics[4].start - vh * 0.35)) / (vh * 0.75),
+      );
       const finaleProgress = smooth(
         (scroll - metrics[5].start) /
           Math.max(1, metrics[5].end - metrics[5].start - vh),
@@ -325,6 +340,10 @@ export default function ImmersiveHome() {
         worksTitle,
         worksTravel,
         servicesProgress,
+        visionRotate,
+        serviceRotate,
+        serviceScreenIn,
+        serviceListIn,
       };
       story.dataset.workVisibility = workVisibility.toFixed(3);
       story.dataset.lightMix = lightMix.toFixed(3);
@@ -925,17 +944,6 @@ export default function ImmersiveHome() {
               </div>
             </article>
           ))}
-          <div className="service-progress immersive-mono" aria-hidden="true">
-            {services.map((service, index) => (
-              <span
-                key={service.title}
-                style={{ opacity: `calc(0.35 + 0.65 * var(--service-${index}, 0))` }}
-              >
-                {String(index + 1).padStart(2, "0")}
-              </span>
-            ))}
-            <i />
-          </div>
         </div>
       </section>
 

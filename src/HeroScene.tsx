@@ -9,15 +9,17 @@ import { SceneChoreography } from "./scene/choreography";
 import { directMp4Url, ProjectVideoTexture } from "./scene/media";
 import { sceneTweaks } from "./sceneTweaks";
 import { drawLoaderImage } from "./scene/loaderImage";
+import { ServiceScene, type ServiceMedia } from "./scene/serviceScene";
 import { services as serviceList } from "./content";
 import {
   backgroundFragment,
   compositeFragment,
-  displayFragment,
   fullscreenVertex,
   panelFragment,
   panelVertex,
   serviceScreenVertex,
+  sideScreenFragment,
+  sideScreenVertex,
   refractionFragment,
   refractionVertex,
 } from "./scene/shaders";
@@ -266,9 +268,10 @@ export default function HeroScene({
         uPortalTravel: { value: 0 },
         uRipple: { value: 0 },
         uRainbow: { value: 0 },
-        uDiveBlur: { value: 0 },
-        uRainbowFade: { value: 0 },
         uLoadingMap: { value: null },
+        uServiceTex: { value: null },
+        uFluid: { value: null },
+        uVisibleService: { value: 0 },
       },
       vertexShader: fullscreenVertex,
       fragmentShader: compositeFragment,
@@ -464,14 +467,24 @@ export default function HeroScene({
     const outline = new THREE.LineSegments(outlineGeometry, outlineMaterial);
     outline.renderOrder = 3;
     letter.add(outline);
+    // Side face of the R: a screen that shows colourful noise, then morphs
+    // to the full frame and reveals the services scene (reference mechanism).
     const displayMaterial = new THREE.ShaderMaterial({
-      uniforms: { uOpacity: { value: 0 }, uTime: { value: 0 } },
+      uniforms: {
+        uOpacity: { value: 0 },
+        uTime: { value: 0 },
+        uMorph: { value: 0 },
+        uVision: { value: 0 },
+        uServiceIn: { value: 0 },
+        uServiceTex: { value: null },
+        uRes: { value: new THREE.Vector2(1, 1) },
+      },
       transparent: true,
       depthTest: false,
       depthWrite: false,
       side: THREE.DoubleSide,
-      vertexShader: fullscreenVertex,
-      fragmentShader: displayFragment,
+      vertexShader: sideScreenVertex,
+      fragmentShader: sideScreenFragment,
     });
     const displayPlane = new THREE.Mesh(
       new THREE.PlaneGeometry(0.42, 4.05),
@@ -492,7 +505,10 @@ export default function HeroScene({
       (letterBox.max.z + letterBox.min.z) / 2,
     );
     displayPlane.rotation.y = -Math.PI / 2;
-    displayPlane.renderOrder = 2;
+    displayPlane.renderOrder = 4;
+    displayPlane.frustumCulled = false;
+    const serviceScene = new ServiceScene(serviceList.length);
+    const serviceTurn = { vision: 0, list: 0, scroll: 1 };
     letter.add(displayPlane);
 
     const contactCanvas = document.createElement("canvas");
@@ -637,8 +653,6 @@ export default function HeroScene({
     servicePortal.visible = false;
     camera.add(servicePortal);
     scene.add(camera);
-    const SCREEN_DISTANCE = 6;
-    let serviceBoxes: HTMLElement[] = [];
 
     const pointer = {
       x: 0.5,
@@ -785,6 +799,7 @@ export default function HeroScene({
         Math.max(1, Math.floor(height * renderer.getPixelRatio())),
       );
       fluid.resize(width, height);
+      serviceScene.setSize(width, height, renderer.getPixelRatio());
       fluid.setEnabled(width > 700);
       // The background uses a square orthographic camera. Compensate its type
       // plane for the viewport so glyphs keep their natural aspect ratio.
@@ -876,21 +891,22 @@ export default function HeroScene({
       // services take over underneath before the rainbow clears.
       // Two-step turn: a slight tilt that shows a sliver of rainbow while the
       // vision copy is read, then the next scroll turns it fully side-on.
-      const tiltSoft = THREE.MathUtils.smoothstep(portalTravel, 0.02, 0.16);
-      const tiltFull = THREE.MathUtils.smoothstep(portalTravel, 0.42, 0.6);
-      const diveTurn = (tiltSoft * 0.28 + tiltFull * 0.72) * (1 - contactMix);
+      // Reference turn: vision eases in (lerp .5); the service turn follows
+      // scroll directly; the services sheet eases in (lerp .3).
+      const ease = (k: number) => 1 - Math.pow(1 - k, dt * 60);
+      serviceTurn.vision += ((s.visionRotate ?? 0) - serviceTurn.vision) * ease(0.5 * 0.2);
+      serviceTurn.list += ((s.serviceListIn ?? 0) - serviceTurn.list) * ease(0.3 * 0.2);
+      const visionRotate = serviceTurn.vision * (1 - contactMix);
+      const serviceRotate = (s.serviceRotate ?? 0) * (1 - contactMix);
+      const serviceScreenIn = s.serviceScreenIn ?? 0;
+      const visibleService = servicesMix >= 0.999 && contactMix < 0.001 ? 1 : 0;
+      const diveTurn = visionRotate;
       // The zoom releases while the rainbow still covers the frame, so the
       // camera is back in place by the time services is revealed.
-      const diveZoom =
-        THREE.MathUtils.smoothstep(portalTravel, 0.55, 0.88) *
-        (1 - THREE.MathUtils.smoothstep(servicesMix, 0, 0.45)) *
-        (1 - contactMix);
-      const diveCover =
-        THREE.MathUtils.smoothstep(portalTravel, 0.74, 0.84) *
-        (1 - THREE.MathUtils.smoothstep(servicesMix, 0.6, 1)) *
-        (1 - contactMix);
+      const diveZoom = 0;
+      // Pale ends only once the side screen fills the frame.
       const palePhase =
-        paleFlatten * (1 - THREE.MathUtils.smoothstep(portalTravel, 0.78, 0.86));
+        paleFlatten * (1 - THREE.MathUtils.smoothstep(serviceRotate, 0.93, 1));
       const light = Math.max(lightMix, palePhase) * (1 - contactMix);
       const portalPulse = 0;
       const cameraApproach = Math.max(0, cameraDive - portalTravel * 1.8);
@@ -906,8 +922,7 @@ export default function HeroScene({
         (1 - Math.min(1, (stateRef.current.current.worksTitle ?? 0) * 2.2)) *
         (1 - contactMix) *
         (1 - lightMix) *
-        (1 - servicesMix) *
-        THREE.MathUtils.smoothstep(reveal, 0.72, 0.95);
+        (1 - servicesMix);
       const worksTitle = s.worksTitle ?? 0;
       // Signed travel lets the title slide in from one side and out the other.
       bgMaterial.uniforms.uWorks.value =
@@ -1074,10 +1089,13 @@ export default function HeroScene({
       const userWeight = (1 - heroExit) * (1 - contactMix) * (reducedRef.current ? 0 : 1);
       userRot.x += (sceneTweaks.userRotX * userWeight - userRot.x) * Math.min(1, dt * 6);
       userRot.y += (sceneTweaks.userRotY * userWeight - userRot.y) * Math.min(1, dt * 6);
-      letter.rotation.x = motion.rotationX * (1 - contactMix) + userRot.x;
+      letter.rotation.x =
+        motion.rotationX * (1 - contactMix) -
+        (visionRotate * 0.1 + serviceRotate * 0.2) +
+        userRot.x;
       letter.rotation.y =
-        motion.rotationY * (1 - palePhase) * (1 - contactMix) * (1 - diveTurn) +
-        diveTurn * (1 - servicesMix) * Math.PI * 0.5 +
+        motion.rotationY * (1 - palePhase) * (1 - contactMix) * (1 - visionRotate) +
+        (visionRotate * 0.15 + serviceRotate * 0.5) * Math.PI * 0.5 +
         userRot.y;
       const q = letter.quaternion;
       sceneTweaks.quaternion = [q.x, q.y, q.z, q.w];
@@ -1116,84 +1134,62 @@ export default function HeroScene({
       rMaterial.uniforms.uServices.value = servicesMix * (1 - contactMix);
       rMaterial.uniforms.uContact.value = contactMix * THREE.MathUtils.smoothstep(finaleProgress, 0.78, 1);
       rMaterial.uniforms.uDepthScale.value =
-        (0.035 + 0.965 * THREE.MathUtils.smoothstep(reveal, 0.08, 0.85)) *
-        (1 - palePhase * 0.97 * (1 - diveTurn));
+        1 - palePhase * 0.97 * (1 - diveTurn);
       // The side face tracks the letter's live extrusion depth.
       displayPlane.scale.x = Math.max(0.02, rMaterial.uniforms.uDepthScale.value);
-      rMaterial.uniforms.uRipple.value = Math.sin(reveal * Math.PI) * 0.18;
+      rMaterial.uniforms.uRipple.value = 0;
       outlineMaterial.opacity = light * (1 - diveTurn);
-      displayMaterial.uniforms.uOpacity.value =
-        THREE.MathUtils.smoothstep(portalTravel, 0.02, 0.3) *
-        (1 - servicesMix) * (1 - contactMix) / 0.85;
+      displayMaterial.uniforms.uOpacity.value = (1 - visibleService) * (1 - contactMix);
       displayMaterial.uniforms.uTime.value = now * 0.001;
-      // ---- Services screen ----
+      displayMaterial.uniforms.uVision.value = visionRotate;
+      displayMaterial.uniforms.uMorph.value = serviceRotate;
+      displayMaterial.uniforms.uServiceIn.value = serviceScreenIn;
+      displayMaterial.uniforms.uServiceTex.value = serviceScene.target.texture;
+      displayMaterial.uniforms.uRes.value.set(
+        width * renderer.getPixelRatio(),
+        height * renderer.getPixelRatio(),
+      );
+      displayPlane.visible = visionRotate > 0.001 && !reducedRef.current;
+      // ---- Services scene (carousel on a bent sheet) ----
       const servicesProgress = s.servicesProgress ?? 0;
-      const servicePosition = servicesProgress * serviceList.length;
-      let serviceVisibility = 0;
-      serviceList.forEach((_, i) => {
-        const offset = servicePosition - (i + 0.5);
-        const held =
-          (i === 0 && offset < 0) || (i === serviceList.length - 1 && offset > 0)
-            ? 0
-            : Math.abs(offset);
-        serviceVisibility = Math.max(
-          serviceVisibility,
-          THREE.MathUtils.smoothstep(1 - (held - 0.3) / 0.2, 0, 1),
-        );
-      });
-      const serviceTexture = serviceProjectTexture.texture;
-      const screenArrive = THREE.MathUtils.smoothstep(servicesProgress, 0, 0.1);
-      // On the last service the screen flattens and wipes out to full frame.
-      const screenFull = THREE.MathUtils.smoothstep(servicesProgress, 0.88, 0.98);
-      const screenSettle = screenArrive * (1 - screenFull);
-      const screenOpacity = servicesMix * (1 - contactMix) * serviceVisibility;
-      servicePortal.visible = screenOpacity > 0.005 && !reducedRef.current;
-      if (servicePortal.visible) {
-        if (!serviceBoxes.length)
-          serviceBoxes = Array.from(document.querySelectorAll<HTMLElement>(".service-media"));
-        const box = serviceBoxes[serviceProjectTexture.serviceIndex]?.getBoundingClientRect();
-        const viewH = 2 * SCREEN_DISTANCE * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2);
-        const viewW = viewH * camera.aspect;
-        const target = box && box.width > 0
-          ? {
-              x: ((box.left + box.width / 2) / width - 0.5) * viewW,
-              y: -((box.top + box.height / 2) / height - 0.5) * viewH,
-              w: (box.width / width) * viewW,
-              h: (box.height / height) * viewH,
-            }
-          : { x: -viewW * 0.2, y: 0, w: viewW * 0.5, h: viewW * 0.3 };
-        const w = THREE.MathUtils.lerp(viewW * 1.04, target.w, screenSettle);
-        const h = THREE.MathUtils.lerp(viewH * 1.04, target.h, screenSettle);
-        servicePortal.position.set(
-          THREE.MathUtils.lerp(0, target.x, screenSettle),
-          THREE.MathUtils.lerp(0, target.y, screenSettle),
-          -SCREEN_DISTANCE,
-        );
-        servicePortal.scale.set(w, h, 1);
-        servicePortal.rotation.set(
-          (mobile ? 0 : -0.07) * screenSettle,
-          (mobile ? 0.14 : 0.48) * screenSettle,
-          (mobile ? 0 : 0.025) * screenSettle,
-        );
-        const u = serviceMaterial.uniforms;
-        u.uTime.value = now * 0.001;
-        u.uScroll.value = servicesProgress;
-        u.uSize.value = h;
-        u.uBow.value = 0.02 + 0.16 * screenSettle;
-        // Strong depth wave on arrival that relaxes as the screen settles,
-        // plus a little extra while scrolling.
-        u.uWave.value =
-          0.04 + (1 - screenArrive) * 0.32 + screenFull * (1 - screenFull) * 0.5 +
-          Math.min(Math.abs(s.scrollVelocity) * 0.004, 0.12);
-        u.uOpacity.value = screenOpacity;
-        u.uMap.value = serviceTexture;
-        u.uMedia.value = serviceTexture;
-        u.uMediaMix.value = 1;
-        u.uMediaIsVideo.value = serviceProjectTexture.isVideo ? 1 : 0;
-        u.uMediaAspect.value = serviceProjectTexture.aspect;
-        u.uMapAspect.value = serviceProjectTexture.aspect;
-        u.uFrameAspect.value = w / Math.max(h, 0.001);
-        u.uDim.value = 1;
+      {
+        // Carousel index after the reference: mostly snapped to the nearest
+        // service, then eased.
+        const raw = THREE.MathUtils.clamp(1 + servicesProgress * serviceList.length - 0.5, 1, serviceList.length);
+        const nearest = Math.round(raw);
+        const snapped = nearest - (nearest - raw) * 0.4;
+        serviceTurn.scroll += (snapped - serviceTurn.scroll) * ease(0.5 * 0.2);
+      }
+      const serviceNeeded =
+        !reducedRef.current && (serviceScreenIn > 0 || servicesMix > 0) && contactMix < 0.999;
+      if (serviceNeeded) {
+        const media: ServiceMedia[] = serviceList.map((service, i) => {
+          if (i === serviceProjectTexture.serviceIndex) return serviceProjectTexture;
+          const index = Math.max(
+            0,
+            projectsRef.current.findIndex((project) => project.slug === service.project),
+          );
+          const poster =
+            ((panels[index]?.material as THREE.ShaderMaterial | undefined)?.uniforms.uMap
+              .value as THREE.Texture) || posters[index] || posters[0];
+          return {
+            texture: poster,
+            isVideo: false,
+            aspect:
+              poster?.image?.width && poster?.image?.height
+                ? poster.image.width / poster.image.height
+                : 1200 / 760,
+          };
+        });
+        serviceScene.update({
+          time: now * 0.001,
+          serviceIn: Math.max(serviceTurn.list, serviceScreenIn * 0.35),
+          scroll: serviceTurn.scroll,
+          full: THREE.MathUtils.smoothstep(servicesProgress, 0.84, 0.98),
+          opacity: 1,
+          media,
+        });
+        serviceScene.render(renderer);
       }
       contactMat.opacity = 0;
       letter.visible = true;
@@ -1207,12 +1203,9 @@ export default function HeroScene({
       compositeMaterial.uniforms.uReveal.value = reveal;
       compositeMaterial.uniforms.uPortalTravel.value = portalTravel;
       compositeMaterial.uniforms.uRipple.value = 0;
-      compositeMaterial.uniforms.uRainbow.value = diveCover;
-      compositeMaterial.uniforms.uDiveBlur.value =
-        Math.sin(Math.PI * Math.min(1, diveZoom)) * (1 - contactMix) +
-        Math.sin(Math.PI * diveTurn) * 0.35 * (1 - servicesMix);
-      compositeMaterial.uniforms.uRainbowFade.value =
-        THREE.MathUtils.smoothstep(portalTravel, 0.83, 0.9);
+      compositeMaterial.uniforms.uServiceTex.value = serviceScene.target.texture;
+      compositeMaterial.uniforms.uFluid.value = fluid.velocity.texture;
+      compositeMaterial.uniforms.uVisibleService.value = visibleService;
       if (reveal < 0.999) {
         const size = `${width}x${height}`;
         if (size !== loaderSize) {
@@ -1279,6 +1272,7 @@ export default function HeroScene({
       displayMaterial.dispose();
       servicePortal.geometry.dispose();
       camera.remove(servicePortal);
+      serviceScene.dispose();
       serviceMaterial.dispose();
       for (const texture of loadedTextures) texture.dispose();
       scene.clear();

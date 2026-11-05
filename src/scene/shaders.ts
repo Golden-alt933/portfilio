@@ -37,7 +37,7 @@ vec3 coverMedia(vec2 uv){
 void main(){
 vec2 v=texture2D(uFluid,vUv).rg;
 // Fluid velocity nudges the whole wall, as in the reference's scene mixer.
-vec2 uv=vUv+v*.012;
+vec2 uv=vUv;
 // Curved wall: the viewer stands inside a cylinder of screens.
 vec2 roomP=(uv-.5)*vec2(uAspect,1.)*1.55; float th=atan(roomP.x);
 vec2 wall=vec2(th*.62,roomP.y*cos(th)*.62)+.5;
@@ -113,7 +113,7 @@ col=mix(col,vec3(.012,.018,.022)+vec3(.15,.2,.22)*(sGrid*.25+sc*.7),uServices);
 vec3 pigment=texture2D(uInk,clamp(uv,vec2(.001),vec2(.999))).rgb;
 vec3 halo=(texture2D(uInk,clamp(uv+vec2(.025,.014),vec2(.001),vec2(.999))).rgb+texture2D(uInk,clamp(uv-vec2(.025,.014),vec2(.001),vec2(.999))).rgb)*.5;
 float wisps=.65+.35*noise(uv*85.+v*.4-uTime*.08);
-vec3 inkGlow=vec3(.05,.1,.25)*min(length(v)*1.5,1.)*.25*(1.-uServices)*(1.-uLight);
+vec3 inkGlow=vec3(0.);
 float domeY=uv.y+pow(uv.x-.5,2.)*.55; float lightWipe=mix(smoothstep(domeY-.06,domeY+.06,uLight*1.14-.1)*step(.001,uLight),1.,smoothstep(.96,1.,uLight));
 float indigoMix=smoothstep(.02,.26,uLight)*(1.-uServices); vec3 indigo=vec3(.035,.02,.5)+vec3(.05,.05,.24)*(gridLine*.5+cross*.9)+pat*.3*inPanel; col=mix(col,indigo,indigoMix);
 vec3 lightCol=vec3(.843,.859,.863); col=mix(col,lightCol,lightWipe);
@@ -122,7 +122,7 @@ float pLine=1.-smoothstep(0.,.04,min(abs(fract(pg.x)-.5),abs(fract(pg.y)-.5)));
 vec2 pc=abs(fract(pg/4.)-.5)*4.;
 float pCross=max((1.-smoothstep(.02,.05,pc.x))*(1.-smoothstep(.22,.28,pc.y)),(1.-smoothstep(.22,.28,pc.x))*(1.-smoothstep(.02,.05,pc.y)));
 col=mix(col,vec3(.42,.45,.47),clamp(lightWipe*(pLine*.07+pCross*.3),0.,.35));
-float vignette=1.-smoothstep(.2,.85,length((uv-.5)*vec2(.9,1.))); col*=mix(mix(.45,1.,vignette),1.,uLight); col*=1.+min(length(v),1.)*.8*(1.-uLight);
+float vignette=1.-smoothstep(.2,.85,length((uv-.5)*vec2(.9,1.))); col*=mix(mix(.45,1.,vignette),1.,uLight);
 col=mix(col,vec3(.006,.008,.012),uContact*.98); col+=vec3(.0,.03,.036)*(1.-smoothstep(0.,.75,length((uv-.5)*vec2(1.,1.7))))*uContact;
 col=sRGBTransferEOTF(vec4(max(col,vec3(0.)),1.)).rgb;
 col+=inkGlow;
@@ -170,7 +170,7 @@ vec3 color=mix(refr,env*1.15,F*.85)+vec3(1.)*min(spec,8.)*.06*F+vec3(.75,.85,1.)
 color*=1.2*uTint;
 float contour=step(.58,fract((vUv.x+vUv.y)*42.)); vec3 light=vec3(.17,.78,.73); color=mix(color,light,.38*uLight*contour); color=mix(color,vec3(.84,.98,.95),uLight*.14);
 color*=1.+min(length(vel),1.)*.12;
-gl_FragColor=vec4(color,(1.-uLight*.99)*(1.-uServices*.82)*(1.-uContact)*smoothstep(0.,.45,uReveal)); }`;
+gl_FragColor=vec4(color,(1.-uLight*.99)*(1.-uServices*.82)*(1.-uContact)); }`;
 
 export const displayFragment = `precision highp float; varying vec2 vUv; uniform float uOpacity,uTime;
 void main(){
@@ -190,47 +190,32 @@ void main(){vec2 p=(vUv-.5)*2.; float r=dot(p,p); vec2 uv=vUv+p*r*.012; vec2 d=n
 
 /** Final full-frame lens pass carries the reveal/portal ripple over cards and background together. */
 export const compositeFragment = `precision highp float; varying vec2 vUv;
-uniform sampler2D uScene,uLoadingMap; uniform vec2 uAspect;
-uniform float uTime,uReveal,uRainbow,uRainbowFade,uDiveBlur;
-float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
-vec3 sceneAt(vec2 uv){ return texture2D(uScene,clamp(uv,vec2(.002),vec2(.998))).rgb; }
-vec3 rainbowAt(vec2 uv){
-  float hue=uv.y*.55+uv.x*.06+sin(uv.y*5.+uTime*.3)*.05+uTime*.025;
-  vec3 rb=.52+.48*cos(6.2831853*(hue+vec3(0.,.33,.67)));
-  return mix(rb,vec3(1.),pow(abs(sin(uv.y*9.+uTime*.4)),18.)*.2);
-}
+uniform sampler2D uScene,uLoadingMap,uServiceTex,uFluid; uniform vec2 uAspect;
+uniform float uTime,uReveal,uVisibleService;
+#define PI 3.14159265359
+vec3 sceneAt(vec2 uv){ return texture2D(uScene,clamp(uv,vec2(.001),vec2(.999))).rgb; }
 void main(){
-vec2 c=vUv-.5; vec2 rad=c*vec2(uAspect.x,1.); float r=length(rad);
-// Burst open, after the reference's final composite: inside an expanding
-// soft radial front the scene grows from 2x to full size, while the loader
-// drawing outside it is pushed outward by the same sine envelope.
-float L=clamp(uReveal,0.,1.); float e=1.-pow(1.-L,3.);
-float front=L*1.4; float soft=mix(.2,.9,L);
-float env=sin(L*3.14159265)*.1;
-vec2 uv=.5+c*mix(.5,1.,e)*(1.-env*(1.-smoothstep(0.,max(front,.001),r)));
-vec2 loadUv=.5+c*(1.-env*2.2);
-float mask=mix(1.-smoothstep(front-soft,front,r),1.,step(.999,L));
-vec3 color;
-if(uDiveBlur>.001){
-  vec3 acc=vec3(0.);
-  for(int i=0;i<10;i++){ float k=float(i)/9.; acc+=sceneAt(.5+(uv-.5)*(1.-k*.16*uDiveBlur)+vec2(k*.04*uDiveBlur,0.)); }
-  color=acc/10.;
-} else { color=sceneAt(uv); }
-vec3 loading=texture2D(uLoadingMap,clamp(loadUv,vec2(.001),vec2(.999))).rgb*(1.-step(.999,L));
-color=mix(loading,color,mask);
-// Rainbow face: soft and grainy, then it dissolves smoothly to black before
-// the services scene arrives.
-if(uRainbow>.001){
-  vec2 j=vec2(.012,.02);
-  vec3 rb=(rainbowAt(uv)*2.+rainbowAt(uv+j)+rainbowAt(uv-j)+rainbowAt(uv+vec2(j.y,-j.x))+rainbowAt(uv-vec2(j.y,-j.x)))/6.;
-  float grain=hash(gl_FragCoord.xy+fract(uTime*37.)*vec2(91.,57.))-.5;
-  rb=clamp(rb+grain*.22,0.,1.);
-  rb=sRGBTransferEOTF(vec4(rb,1.)).rgb;
-  float fade=smoothstep(0.,1.,uRainbowFade);
-  rb=mix(rb,vec3(grain*.02+.004),fade);
-  color=mix(color,rb,uRainbow);
+vec2 uv=vUv; vec2 cuv=vUv-.5;
+// Pointer fluid only warps and brightens the finished frame (no colour).
+vec2 fl=texture2D(uFluid,uv).xy; float fll=length(fl);
+vec3 mainCol=sceneAt(uv+fl*.01)*(1.+fll*.8);
+vec3 serviceCol=texture2D(uServiceTex,clamp(uv+fl*.01,vec2(.001),vec2(.999))).rgb*(1.+fll*.8)*smoothstep(1.5,.3,length(cuv));
+vec3 col=mix(mainCol,serviceCol,step(.9999,uVisibleService));
+// Opening burst: a soft ring grows with load progress; inside it the scene
+// zooms out from 2x, and both scene and loader drawing are pushed radially
+// by sin(r*PI), so the push peaks at the ring itself.
+float L=uReveal;
+if(L<.999){
+  vec2 a=cuv; if(uAspect.x>1.){ a.y/=uAspect.x; } else { a.x*=uAspect.x; }
+  float r=smoothstep(0.,.2+L*.7,-length(a)+L*1.4);
+  vec2 n=normalize(a+vec2(1e-5));
+  vec2 sceneUv=(uv-.5)*(.5+L*.5)+.5-sin(r*PI)*n*.1;
+  vec2 luv=uv-sin(r*PI)*n*.1;
+  vec3 burst=sceneAt(sceneUv+fl*.01);
+  vec3 loading=texture2D(uLoadingMap,clamp(luv,vec2(.001),vec2(.999))).rgb;
+  col=mix(loading,burst,smoothstep(0.,.5,r));
 }
-gl_FragColor=vec4(color,1.);
+gl_FragColor=vec4(col,1.);
 #include <colorspace_fragment>
 }`;
 
@@ -241,3 +226,93 @@ p.z+=cos(nx*1.3)*uBow*uSize;
 p.z+=(sin(nx*3.1+uTime*1.3+uScroll*9.)*.5+sin(ny*2.4-uTime*1.05+nx*1.8)*.28)*uWave*uSize;
 p.y+=sin(nx*2.2+uTime*.9+uScroll*6.)*uWave*uSize*.05;
 gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.); }`;
+
+/** Side face of the R. Its corners interpolate from their projected 3D
+ *  positions to the full frame as uMorph goes 0 -> 1 (the service turn). */
+export const sideScreenVertex = `uniform float uMorph; varying vec2 vUv;
+void main(){ vUv=uv; vec4 p=projectionMatrix*modelViewMatrix*vec4(position,1.); p.xyz/=p.w; p.w=1.;
+vec4 full=vec4((uv*2.-1.)*1.03,0.,1.);
+gl_Position=mix(p,full,uMorph); }`;
+
+/** The side screen: colourful animated noise with grain, through which the
+ *  services scene is revealed behind a lens distortion that relaxes. */
+export const sideScreenFragment = `precision highp float; varying vec2 vUv;
+uniform sampler2D uServiceTex; uniform vec2 uRes; uniform float uServiceIn,uVision,uOpacity,uTime;
+float hash(vec2 p){ return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453); }
+float vnoise(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.-2.*f); return mix(mix(hash(i),hash(i+vec2(1.,0.)),f.x),mix(hash(i+vec2(0.,1.)),hash(i+vec2(1.,1.)),f.x),f.y); }
+vec4 noiseTex(vec2 p){ float t=uTime*.1; return vec4(vnoise(p*4.+vec2(t,0.)),vnoise(p*4.3+5.-vec2(0.,t)),vnoise(p*3.7+9.+t),vnoise(p*4.6+13.-t)); }
+vec2 lens(vec2 r,float a){ return r*(1.-a*dot(r,r)); }
+void main(){
+vec2 geoUV=vUv; geoUV.x=(geoUV.x-.5)*.15+.5;
+vec2 screenUv=gl_FragCoord.xy/uRes;
+vec2 uv=mix(geoUV,screenUv,pow(max(uServiceIn,0.),.2));
+vec4 n1=noiseTex(geoUV*1.5);
+vec4 n2=noiseTex(geoUV*.45+n1.xy*(2.3+hash(screenUv+fract(uTime))*.2));
+vec3 effectCol=.5+.5*cos(6.2831853*(n2.x*1.4+n2.w*.6+vec3(0.,.33,.67)));
+effectCol=mix(effectCol,n2.xyz,.25);
+float inv=1.-uServiceIn;
+vec3 sceneCol=vec3(0.);
+for(int i=0;i<5;i++){
+  float fi=float(i)/5.;
+  vec2 d=uv+(n2.xy-.5)*inv;
+  float pw=inv*5.+fi*.2*inv;
+  sceneCol.r+=texture2D(uServiceTex,clamp(lens(d-.5,pw)+.5,vec2(.001),vec2(.999))).r;
+  sceneCol.g+=texture2D(uServiceTex,clamp(lens(d-.5,1.05*pw)+.5,vec2(.001),vec2(.999))).g;
+  sceneCol.b+=texture2D(uServiceTex,clamp(lens(d-.5,1.1*pw)+.5,vec2(.001),vec2(.999))).b;
+}
+sceneCol/=5.; sceneCol*=1.+inv*3.; sceneCol*=mix(.5+effectCol,vec3(1.),uServiceIn);
+float w=smoothstep(0.,smoothstep(0.,1.,n2.z)+.001,-n2.y+uServiceIn*2.);
+vec3 outCol=mix(effectCol,sceneCol,w);
+outCol+=(hash(gl_FragCoord.xy+fract(uTime*31.)*97.)-.5)*.08*inv;
+gl_FragColor=vec4(outCol,smoothstep(0.,.1,uVision)*uOpacity); }`;
+
+/** Services sheet after the reference's list shader: grid, crosses and
+ *  thumbnails ride one sine-bent sheet; thumbnails slide as a carousel and
+ *  the last one wipes to full frame. */
+export const serviceSheetVertex = `uniform float uServiceIn,uTime,uScroll,uFull,uId,uIsLast,uOffsetX,uWave; uniform vec2 uScale;
+varying vec2 vUv; varying float vShade; varying float vFull;
+#define PI 3.14159265359
+void main(){ vUv=uv; vec2 lp=position.xy;
+#ifdef IS_THUMB
+float x=uId-(uScroll-1.); lp=position.xy*.3; lp.x*=(16./9.)*.85; lp.x+=x*.95+uOffsetX; lp.x-=uFull*.5*(1.-uIsLast);
+#else
+lp.x*=1.4;
+#endif
+float theta=lp.x*PI+(1.-uServiceIn)*8.;
+vec3 p=vec3(lp.x*uScale.x,lp.y*uScale.y,-sin(theta)*uWave*uServiceIn);
+#ifndef IS_THUMB
+p.y*=1.7;
+#endif
+vShade=cos(theta)*uServiceIn*.7;
+gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.);
+vFull=0.;
+#ifdef IS_THUMB
+float w=smoothstep(0.,1.,-uv.x*.3+uFull*1.3)*uIsLast;
+gl_Position=mix(gl_Position,vec4(position.xy*2.,0.,1.),w);
+vFull=w;
+#endif
+}`;
+
+export const serviceGridFragment = `precision highp float; varying vec2 vUv; varying float vShade;
+uniform float uTime,uScroll,uServiceIn,uOpacity; uniform vec2 uGrid;
+void main(){
+vec2 g=abs(fract(vUv*uGrid)-.5);
+vec2 px=fwidth(vUv*uGrid);
+float line=max(1.-smoothstep(0.,px.x*1.2,.5-g.x),1.-smoothstep(0.,px.y*1.2,.5-g.y));
+vec2 c=vUv; c.x+=uTime*.01+uScroll*.3+uServiceIn*.2;
+vec2 cf=(fract(c*vec2(15.,10.))-.5)*vec2(15.,10.)/vec2(15.,10.)*vec2(1.5,1.);
+vec2 ac=abs(fract(c*vec2(15.,10.))-.5)*vec2(1.5,1.);
+float cross=max(step(ac.x,.006)*step(ac.y,.06),step(ac.y,.006)*step(ac.x,.06));
+float a=line*.08+cross*.34;
+gl_FragColor=vec4(vec3(1.),a*uOpacity); }`;
+
+export const serviceThumbFragment = `precision highp float; varying vec2 vUv; varying float vShade; varying float vFull;
+uniform sampler2D uMap; uniform float uOpacity,uIsVideo,uMediaAspect,uScreenAspect;
+void main(){
+float frame=mix((16./9.)*.85,uScreenAspect,vFull);
+vec2 p=vUv-.5; if(uMediaAspect>frame){ p.x*=frame/uMediaAspect; } else { p.y*=uMediaAspect/frame; }
+vec3 col=texture2D(uMap,clamp(p+.5,vec2(.001),vec2(.999))).rgb;
+col=mix(col,sRGBTransferEOTF(vec4(col,1.)).rgb,uIsVideo);
+col*=1.+vShade*.25;
+vec2 e=abs(vUv-.5)*2.; col*=mix(.82,1.,1.-smoothstep(.7,1.,max(e.x,e.y))*(1.-vFull));
+gl_FragColor=vec4(col,uOpacity); }`;

@@ -30,6 +30,14 @@ export interface SceneState {
   worksTitle: number;
   /** 0→1 linear travel through the WORKS title window (drives its descent). */
   worksTravel: number;
+  /** Slight R tilt as the vision chapter arrives (reference uVisionRotate). */
+  visionRotate: number;
+  /** R turns side-on and its side screen morphs to full frame. */
+  serviceRotate: number;
+  /** Side screen reveals the services scene through noise. */
+  serviceScreenIn: number;
+  /** Services sheet arrival (bend/swirl in). */
+  serviceListIn: number;
   /** Local progress through the services chapters. */
   servicesProgress: number;
 }
@@ -57,5 +65,9 @@ export function initialSceneState(): SceneState {
     worksTitle: 0,
     worksTravel: 0,
     servicesProgress: 0,
+    visionRotate: 0,
+    serviceRotate: 0,
+    serviceScreenIn: 0,
+    serviceListIn: 0,
   };
 }

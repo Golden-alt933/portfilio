@@ -36,7 +36,6 @@ export class FluidField {
   private enabled: boolean;
   private resolution: THREE.Vector2;
   private reveal = 0;
-  private introSplatStage = 0;
   private revealTime = 0;
   private splatQueue: Splat[] = [];
   private splatPositions = Array.from({ length: 8 }, () => new THREE.Vector4());
@@ -104,8 +103,15 @@ export class FluidField {
       },
       vertexShader: vertex,
       fragmentShader: `precision highp float; varying vec2 vUv; uniform sampler2D uPrev; uniform vec2 uPointer,uImpulse,uTexel; uniform float uEnabled,uDt;
-      void main(){ vec2 v=texture2D(uPrev,vUv).rg; vec2 back=vUv-v*uTexel*2.0*(uDt*60.0); v=texture2D(uPrev,back).rg*pow(.99,uDt*60.0);
-      vec2 d=(vUv-uPointer)*vec2(1.0,uTexel.x/uTexel.y); float f=exp(-dot(d,d)/.0038); v+=uImpulse*f*30.0*(uDt*60.0); gl_FragColor=vec4(clamp(v,vec2(-2.0),vec2(2.0))*uEnabled,0.0,1.0); }`,
+      void main(){ vec2 v=texture2D(uPrev,vUv).rg; vec2 back=vUv-v*uTexel*(uDt*60.0); v=texture2D(uPrev,back).rg*pow(.99,uDt*60.0);
+      // Pointer splat after the reference: a tiny radius that grows with
+      // pointer speed (1%..6% of the frame) and a force of 30x, clamped.
+      float aspect=uTexel.y/uTexel.x; vec2 d=vUv-uPointer; if(aspect<1.0){ d.x*=aspect; } else { d.y/=aspect; }
+      float pv=smoothstep(0.01,1.0,length(uImpulse));
+      float w=smoothstep(0.01+0.1*min(0.5,pv),0.0,length(d));
+      vec2 power=uImpulse*30.0; if(aspect<1.0){ power.x/=aspect; } else { power.y*=aspect; }
+      power=clamp(power,vec2(-2.0),vec2(2.0));
+      v+=w*power; gl_FragColor=vec4(clamp(v,vec2(-2.0),vec2(2.0))*uEnabled,0.0,1.0); }`,
     });
     this.divergenceMaterial = new THREE.ShaderMaterial({
       uniforms: {
@@ -205,9 +211,10 @@ export class FluidField {
     );
     const signedPower = (v: number) =>
       Math.sign(v) * Math.pow(Math.abs(v), 1.6);
+    // Accumulates and halves every update, like the reference's pointer vector.
     this.impulse.set(
-      THREE.MathUtils.clamp(signedPower(dx * 2), -1, 1),
-      THREE.MathUtils.clamp(signedPower(dy * 2), -1, 1),
+      THREE.MathUtils.clamp(this.impulse.x + signedPower(dx * 2), -1, 1),
+      THREE.MathUtils.clamp(this.impulse.y + signedPower(dy * 2), -1, 1),
     );
     this.pointerDeposit = Math.min(1, Math.hypot(dx, dy) * 22);
     this.pointerColor.setHSL(0.5 + ((x * 0.1 + y * 0.06 + 1) % 1) * 0.14, 0.86, 0.6);
@@ -256,44 +263,9 @@ export class FluidField {
 
   /** Normalized reveal; emits a seeded cluster once while the intro crosses 0.07–0.62. */
   setReveal(value: number) {
+    // The reference has no ink burst on load; the reveal is purely optical.
     this.reveal = THREE.MathUtils.clamp(value, 0, 1);
-    const gates = [0.07, 0.15, 0.23, 0.31, 0.39, 0.47, 0.55, 0.62];
-    if (this.reveal >= 0.68) {
-      // The reveal window was skipped (for example while hidden); don't replay all missed bursts.
-      this.introSplatStage = gates.length;
-      return;
-    }
-    if (this.reveal < 0.015) {
-      this.introSplatStage = 0;
-      this.revealTime = 0;
-      return;
-    }
-    while (
-      this.introSplatStage < gates.length &&
-      this.reveal >= gates[this.introSplatStage]
-    ) {
-      const stage = this.introSplatStage++;
-      const angle = stage * 2.39996323 + this.revealTime * 0.16;
-      const radius = 0.06 + stage * 0.025;
-      const x = 0.5 + Math.cos(angle) * radius;
-      const y = 0.5 + Math.sin(angle) * radius * 0.66;
-      this.splat(
-        x,
-        y,
-        Math.cos(angle) * 0.65,
-        Math.sin(angle) * 0.65,
-        0.85 + (stage % 2) * 0.25,
-      );
-      this.splat(
-        x + Math.cos(angle + 0.8) * (0.04 + stage * 0.006),
-        y + Math.sin(angle + 0.8) * (0.035 + stage * 0.003),
-        Math.cos(angle + 0.8),
-        Math.sin(angle + 0.8),
-        0.48,
-      );
-    }
   }
-
   private pass(
     material: THREE.ShaderMaterial,
     target: THREE.WebGLRenderTarget,
@@ -332,6 +304,7 @@ export class FluidField {
         this.velocityMaterial.uniforms.uPrev.value = this.velocity.texture;
         this.pass(this.velocityMaterial, this.velocityBack);
         [this.velocity, this.velocityBack] = [this.velocityBack, this.velocity];
+        this.impulse.multiplyScalar(0.5);
         this.divergenceMaterial.uniforms.uVelocity.value =
           this.velocity.texture;
         this.pass(this.divergenceMaterial, this.divergence);
