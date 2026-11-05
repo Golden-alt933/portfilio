@@ -8,6 +8,7 @@ import { FluidField } from "./scene/FluidField";
 import { SceneChoreography } from "./scene/choreography";
 import { directMp4Url, ProjectVideoTexture } from "./scene/media";
 import { sceneTweaks } from "./sceneTweaks";
+import { services as serviceList } from "./content";
 import {
   backgroundFragment,
   compositeFragment,
@@ -15,6 +16,7 @@ import {
   fullscreenVertex,
   panelFragment,
   panelVertex,
+  serviceScreenVertex,
   refractionFragment,
   refractionVertex,
 } from "./scene/shaders";
@@ -263,6 +265,11 @@ export default function HeroScene({
         uPortalTravel: { value: 0 },
         uRipple: { value: 0 },
         uRainbow: { value: 0 },
+        uDiveBlur: { value: 0 },
+        uScreenReveal: { value: 0 },
+        uServiceMap: { value: null },
+        uServiceAspect: { value: 1200 / 760 },
+        uServiceIsVideo: { value: 0 },
       },
       vertexShader: fullscreenVertex,
       fragmentShader: compositeFragment,
@@ -303,6 +310,9 @@ export default function HeroScene({
         uPortalAspect: { value: 1200 / 760 },
         uWorksMap: { value: null },
         uWorks: { value: 0 },
+        uWorksY: { value: 0 },
+        uWorkMedia: { value: 0 },
+        uScroll: { value: 0 },
       },
       vertexShader: fullscreenVertex,
       fragmentShader: backgroundFragment,
@@ -596,25 +606,33 @@ export default function HeroScene({
         uDim: { value: 0.18 },
         uOpacity: { value: 0 },
       },
-      vertexShader: panelVertex,
+      vertexShader: serviceScreenVertex,
       fragmentShader: panelFragment,
       transparent: true,
       depthWrite: false,
+      depthTest: false,
       toneMapped: false,
     });
-    const serviceGeometry = new THREE.PlaneGeometry(4.7, 3.1, 24, 18);
-    const servicePositions = serviceGeometry.attributes
-      .position as THREE.BufferAttribute;
-    for (let index = 0; index < servicePositions.count; index++)
-      servicePositions.setZ(
-        index,
-        -0.12 * Math.cos((servicePositions.getX(index) / 4.7) * Math.PI),
-      );
-    serviceGeometry.computeVertexNormals();
-    const servicePortal = new THREE.Mesh(serviceGeometry, serviceMaterial);
-    servicePortal.position.set(-2.45, 0.25, 1.4);
-    servicePortal.rotation.y = 0.24;
-    scene.add(servicePortal);
+    Object.assign(serviceMaterial.uniforms, {
+      uTime: { value: 0 },
+      uWave: { value: 0 },
+      uBow: { value: 0 },
+      uScroll: { value: 0 },
+      uSize: { value: 1 },
+    });
+    // Services screen: a finely subdivided unit plane parented to the camera.
+    // It starts filling the frame straight after the rainbow dive, then
+    // settles onto the layout box of the (hidden) DOM media panel.
+    const servicePortal = new THREE.Mesh(
+      new THREE.PlaneGeometry(1, 1, 48, 30),
+      serviceMaterial,
+    );
+    servicePortal.renderOrder = 3;
+    servicePortal.visible = false;
+    camera.add(servicePortal);
+    scene.add(camera);
+    const SCREEN_DISTANCE = 6;
+    let serviceBoxes: HTMLElement[] = [];
 
     const pointer = {
       x: 0.5,
@@ -914,9 +932,49 @@ export default function HeroScene({
         !shaderFailed &&
         contactMix < 0.98 &&
         (workMix > 0.01 || portalReveal > 0.015);
-      mediaCache.forEach((media, index) =>
-        media.setActive(mediaActive && index === selectedIndex),
+      // The active service's project media feeds both the dive screen and
+      // the services panel. Its video (if any) plays alongside the works one.
+      const servicePos = (s.servicesProgress ?? 0) * serviceList.length;
+      const serviceIndex = Math.max(
+        0,
+        Math.min(serviceList.length - 1, Math.floor(servicePos)),
       );
+      const serviceProjectIndex = Math.max(
+        0,
+        projectsRef.current.findIndex(
+          (project) => project.slug === serviceList[serviceIndex]?.project,
+        ),
+      );
+      const serviceProject = projectsRef.current[serviceProjectIndex];
+      const serviceVideoUrl = directMp4Url(serviceProject?.videoUrl);
+      const serviceWanted =
+        (portalTravel > 0.6 || servicesMix > 0.01) && contactMix < 0.98 && !mobile && !reducedRef.current;
+      let serviceVideo = mediaCache.get(serviceProjectIndex);
+      if (serviceVideoUrl && !serviceVideo && serviceWanted) {
+        serviceVideo = new ProjectVideoTexture(serviceVideoUrl);
+        mediaCache.set(serviceProjectIndex, serviceVideo);
+      }
+      mediaCache.forEach((media, index) =>
+        media.setActive(
+          (mediaActive && index === selectedIndex) ||
+            (serviceWanted && activeRef.current && visible && !document.hidden && index === serviceProjectIndex),
+        ),
+      );
+      const serviceVideoReady = !!serviceVideo?.ready && !serviceVideo.video.paused;
+      const servicePoster =
+        ((panels[serviceProjectIndex]?.material as THREE.ShaderMaterial | undefined)?.uniforms.uMap
+          .value as THREE.Texture) || posters[serviceProjectIndex] || posters[0];
+      const serviceProjectTexture = {
+        serviceIndex,
+        texture: serviceVideoReady && serviceVideo ? serviceVideo.texture : servicePoster,
+        isVideo: serviceVideoReady,
+        aspect:
+          serviceVideoReady && serviceVideo && serviceVideo.video.videoHeight > 0
+            ? serviceVideo.video.videoWidth / serviceVideo.video.videoHeight
+            : servicePoster?.image?.width && servicePoster?.image?.height
+              ? servicePoster.image.width / servicePoster.image.height
+              : 1200 / 760,
+      };
       const selectedPoster = (panels[selectedIndex]?.material as THREE.ShaderMaterial | undefined)?.uniforms.uMap.value as THREE.Texture || posters[selectedIndex] || posters[0];
       const videoReady = !!selectedVideo?.ready && !selectedVideo.video.paused;
       const selectedTexture =
@@ -934,6 +992,10 @@ export default function HeroScene({
         portalReveal * (1 - contactMix) * (1 - diveTurn * 0.85);
       bgMaterial.uniforms.uPortalIsVideo.value = videoReady ? 1 : 0;
       bgMaterial.uniforms.uPortalAspect.value = mediaAspect;
+      // Video wall during the work track; the wall scrolls with the page.
+      bgMaterial.uniforms.uWorkMedia.value = workMix * (1 - lightMix);
+      bgMaterial.uniforms.uScroll.value = (window.scrollY / Math.max(1, height)) * 0.06;
+      bgMaterial.uniforms.uWorksY.value = THREE.MathUtils.lerp(-0.62, 0.62, s.worksTravel ?? 0);
       // Refraction samples an independent background target, avoiding feedback from the letter/portal.
       renderer.setRenderTarget(backgroundTarget);
       renderer.clear(true, true, true);
@@ -1046,28 +1108,73 @@ export default function HeroScene({
         (1 - palePhase * 0.97 * (1 - diveTurn));
       // The side face tracks the letter's live extrusion depth.
       displayPlane.scale.x = Math.max(0.02, rMaterial.uniforms.uDepthScale.value);
-      rMaterial.uniforms.uRipple.value =
-        Math.sin(reveal * Math.PI) * (0.3 + (1 - reveal) * 0.7);
+      rMaterial.uniforms.uRipple.value = Math.sin(reveal * Math.PI) * 0.18;
       outlineMaterial.opacity = light * (1 - diveTurn);
       displayMaterial.uniforms.uOpacity.value =
         THREE.MathUtils.smoothstep(portalTravel, 0.02, 0.3) *
         (1 - servicesMix) * (1 - contactMix) / 0.85;
       displayMaterial.uniforms.uTime.value = now * 0.001;
-      const portalAmount = portalReveal * (1 - contactMix);
-      // The DOM service chapters carry their own media, so the portal recedes.
-      serviceMaterial.uniforms.uOpacity.value =
-        portalAmount * 0.04 * THREE.MathUtils.smoothstep(servicesMix, 0.6, 1);
-      serviceMaterial.uniforms.uMap.value = selectedPoster;
-      serviceMaterial.uniforms.uMedia.value = selectedTexture;
-      serviceMaterial.uniforms.uMediaMix.value = 1;
-      serviceMaterial.uniforms.uMediaIsVideo.value = videoReady ? 1 : 0;
-      serviceMaterial.uniforms.uMediaAspect.value = mediaAspect;
-      serviceMaterial.uniforms.uMapAspect.value = selectedPoster?.image?.width && selectedPoster?.image?.height
-        ? selectedPoster.image.width / selectedPoster.image.height
-        : 1200 / 760;
-      servicePortal.visible = portalAmount > 0.005;
-      servicePortal.scale.setScalar(0.8 + portalTravel * (mobile ? 0.6 : 1.25));
-      servicePortal.rotation.y = 0.24 * (1 - portalReveal);
+      // ---- Services screen ----
+      const servicesProgress = s.servicesProgress ?? 0;
+      const servicePosition = servicesProgress * serviceList.length;
+      let serviceVisibility = 0;
+      serviceList.forEach((_, i) => {
+        const offset = servicePosition - (i + 0.5);
+        const held =
+          (i === 0 && offset < 0) || (i === serviceList.length - 1 && offset > 0)
+            ? 0
+            : Math.abs(offset);
+        serviceVisibility = Math.max(
+          serviceVisibility,
+          THREE.MathUtils.smoothstep(1 - (held - 0.3) / 0.2, 0, 1),
+        );
+      });
+      const serviceTexture = serviceProjectTexture.texture;
+      const screenSettle = THREE.MathUtils.smoothstep(servicesProgress, 0, 0.1);
+      const screenOpacity = servicesMix * (1 - contactMix) * serviceVisibility;
+      servicePortal.visible = screenOpacity > 0.005 && !reducedRef.current;
+      if (servicePortal.visible) {
+        if (!serviceBoxes.length)
+          serviceBoxes = Array.from(document.querySelectorAll<HTMLElement>(".service-media"));
+        const box = serviceBoxes[serviceProjectTexture.serviceIndex]?.getBoundingClientRect();
+        const viewH = 2 * SCREEN_DISTANCE * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2);
+        const viewW = viewH * camera.aspect;
+        const target = box && box.width > 0
+          ? {
+              x: ((box.left + box.width / 2) / width - 0.5) * viewW,
+              y: -((box.top + box.height / 2) / height - 0.5) * viewH,
+              w: (box.width / width) * viewW,
+              h: (box.height / height) * viewH,
+            }
+          : { x: -viewW * 0.2, y: 0, w: viewW * 0.5, h: viewW * 0.3 };
+        const w = THREE.MathUtils.lerp(viewW * 1.04, target.w, screenSettle);
+        const h = THREE.MathUtils.lerp(viewH * 1.04, target.h, screenSettle);
+        servicePortal.position.set(
+          THREE.MathUtils.lerp(0, target.x, screenSettle),
+          THREE.MathUtils.lerp(0, target.y, screenSettle),
+          -SCREEN_DISTANCE,
+        );
+        servicePortal.scale.set(w, h, 1);
+        servicePortal.rotation.set(0, (mobile ? 0.12 : 0.3) * screenSettle, 0);
+        const u = serviceMaterial.uniforms;
+        u.uTime.value = now * 0.001;
+        u.uScroll.value = servicesProgress;
+        u.uSize.value = h;
+        u.uBow.value = 0.03 + 0.05 * screenSettle;
+        // Strong depth wave on arrival that relaxes as the screen settles,
+        // plus a little extra while scrolling.
+        u.uWave.value =
+          0.05 + (1 - screenSettle) * 0.32 + Math.min(Math.abs(s.scrollVelocity) * 0.004, 0.12);
+        u.uOpacity.value = screenOpacity;
+        u.uMap.value = serviceTexture;
+        u.uMedia.value = serviceTexture;
+        u.uMediaMix.value = 1;
+        u.uMediaIsVideo.value = serviceProjectTexture.isVideo ? 1 : 0;
+        u.uMediaAspect.value = serviceProjectTexture.aspect;
+        u.uMapAspect.value = serviceProjectTexture.aspect;
+        u.uFrameAspect.value = w / Math.max(h, 0.001);
+        u.uDim.value = 1;
+      }
       contactMat.opacity = 0;
       letter.visible = true;
       holder!.dataset.depth = rMaterial.uniforms.uDepthScale.value.toFixed(3);
@@ -1079,8 +1186,16 @@ export default function HeroScene({
       compositeMaterial.uniforms.uAspect.value.set(width / height, 1);
       compositeMaterial.uniforms.uReveal.value = reveal;
       compositeMaterial.uniforms.uPortalTravel.value = portalTravel;
-      compositeMaterial.uniforms.uRipple.value = Math.max(Math.sin(reveal * Math.PI), portalPulse);
+      compositeMaterial.uniforms.uRipple.value = 0;
       compositeMaterial.uniforms.uRainbow.value = diveCover;
+      compositeMaterial.uniforms.uDiveBlur.value =
+        Math.sin(Math.PI * Math.min(1, diveZoom)) * (1 - contactMix) +
+        Math.sin(Math.PI * diveTurn) * 0.35 * (1 - servicesMix);
+      compositeMaterial.uniforms.uScreenReveal.value =
+        THREE.MathUtils.smoothstep(portalTravel, 0.8, 0.97);
+      compositeMaterial.uniforms.uServiceMap.value = serviceProjectTexture.texture;
+      compositeMaterial.uniforms.uServiceAspect.value = serviceProjectTexture.aspect;
+      compositeMaterial.uniforms.uServiceIsVideo.value = serviceProjectTexture.isVideo ? 1 : 0;
       renderer.setRenderTarget(null);
       renderer.clear(true, true, true);
       renderer.render(compositeScene, compositeCamera);
@@ -1136,7 +1251,8 @@ export default function HeroScene({
       outlineMaterial.dispose();
       displayPlane.geometry.dispose();
       displayMaterial.dispose();
-      serviceGeometry.dispose();
+      servicePortal.geometry.dispose();
+      camera.remove(servicePortal);
       serviceMaterial.dispose();
       for (const texture of loadedTextures) texture.dispose();
       scene.clear();

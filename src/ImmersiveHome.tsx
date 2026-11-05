@@ -274,15 +274,14 @@ export default function ImmersiveHome() {
       const portalProgress = portalTravel;
       // WORKS title: a bell that peaks just as the hero copy clears and
       // before the first card arrives.
+      // WORKS window: it appears near the top of the wall, travels down it and
+      // fades, peaking just as the hero copy clears.
+      const worksTravel = clamp(
+        (scroll - (workMetric.start - vh * 0.7)) / (vh * 1.7),
+      );
       const worksTitle = reducedMotion
         ? 0
-        : Math.pow(
-            Math.sin(
-              Math.PI *
-                clamp((scroll - (workMetric.start - vh * 0.55)) / (vh * 1.35)),
-            ),
-            1.4,
-          );
+        : Math.pow(Math.sin(Math.PI * worksTravel), 1.2);
       const servicesProgress = clamp(
         (scroll - metrics[4].start) /
           Math.max(1, metrics[4].end - metrics[4].start - vh),
@@ -324,6 +323,7 @@ export default function ImmersiveHome() {
           activeWorkRef.current / Math.max(1, workProjects.length - 1),
         finaleProgress,
         worksTitle,
+        worksTravel,
         servicesProgress,
       };
       story.dataset.workVisibility = workVisibility.toFixed(3);

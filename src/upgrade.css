@@ -487,6 +487,20 @@ body:has(.works-index-page) {
 }
 
 
+/* When WebGL is running, the services media is drawn as a bending screen in
+   the scene. The DOM box stays in layout (invisible, untransformed) so the
+   renderer can read its position. */
+.immersive-home.scene-ready:not(.is-static) .service-media {
+  visibility: hidden;
+  transform: translateY(-50%);
+  box-shadow: none;
+}
+@media (max-width: 900px) {
+  .immersive-home.scene-ready:not(.is-static) .service-media {
+    transform: none;
+  }
+}
+
 /* ---------- Auto-contrast ----------
    Fixed chrome is white and blends with "difference": over dark areas it
    stays white, over pale areas (or a white card) it flips to black, per pixel. */
