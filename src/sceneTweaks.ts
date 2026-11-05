@@ -15,7 +15,7 @@ export interface SceneTweaks {
 }
 
 export const TWEAK_DEFAULTS = {
-  roughness: 0.1,
+  roughness: 0.14,
   noiseScale: 9,
   dispersion: 0.03,
   tint: [1, 1, 1] as [number, number, number],

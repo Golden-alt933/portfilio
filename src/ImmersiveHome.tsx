@@ -463,7 +463,7 @@ export default function ImmersiveHome() {
         // Copy holds fully across most of each chapter; short crossfades.
         const visibility = reducedMotion
           ? 1
-          : smooth(1 - (held - 0.3) / 0.15);
+          : smooth(1 - (held - 0.36) / 0.12);
         story.style.setProperty(`--service-${i}`, visibility.toFixed(3));
         story.style.setProperty(
           `--service-${i}-offset`,

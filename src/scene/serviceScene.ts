@@ -151,7 +151,7 @@ export class ServiceScene {
     b.uMap.value = backdropMedia?.texture ?? null;
     b.uIsVideo.value = backdropMedia?.isVideo ? 1 : 0;
     b.uMediaAspect.value = backdropMedia?.aspect ?? 16 / 9;
-    b.uOpacity.value = 0.24 * state.opacity * Math.min(1, state.serviceIn * 1.5);
+    b.uOpacity.value = 0.15 * state.opacity * Math.min(1, state.serviceIn * 1.5);
     this.backdrop.visible = !!backdropMedia?.texture;
     this.thumbs.forEach((thumb, i) => {
       const media = state.media[i];

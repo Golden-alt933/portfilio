@@ -798,3 +798,27 @@ html:has(.works-index-page) {
     filter: none;
   }
 }
+
+/* ---------- Services copy ----------
+   Plain white (no difference blend: over a light poster it turned grey) with
+   a soft shadow, rising into place as its panel settles. */
+.immersive-home .immersive-services-stage {
+  mix-blend-mode: normal;
+}
+.service-chapter .service-copy {
+  transform: translateY(calc(-50% + (1 - var(--service-visibility)) * 36px + var(--service-offset) * -20px));
+  text-shadow: 0 1px 18px #0009;
+}
+.service-copy h3,
+.service-copy p,
+.service-copy > span {
+  color: #f4f5f2;
+}
+.service-copy p {
+  color: #d9dbd7;
+}
+@media (max-width: 900px) {
+  .service-chapter .service-copy {
+    transform: translateY(calc((1 - var(--service-visibility)) * 28px));
+  }
+}

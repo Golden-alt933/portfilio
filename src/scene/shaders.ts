@@ -133,41 +133,62 @@ export const refractionFragment = `precision highp float; varying vec2 vUv; vary
 uniform sampler2D uScene,uFluid,uInk; uniform samplerCube uEnv; uniform vec2 uResolution; uniform vec3 uIorRGB;
 uniform float uTime,uLight,uReveal,uServices,uContact,uRoughness,uNoiseScale,uRipple; uniform vec3 uTint;
 vec3 sceneAt(vec2 uv){ return texture2D(uScene,clamp(uv,vec2(.002),vec2(.998))).rgb; }
-// Clear, dense glass: a stable (un-jittered) refraction of the scene behind,
-// split per channel for dispersion that grows toward the bevels, a thin
-// Fresnel reflection of the studio environment and tight specular glints.
-// No frosting noise and no overall boost, so the letter reads as solid glass
-// rather than a glowing shape.
+float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
+float vnoise(vec3 p){ vec3 i=floor(p),f=fract(p); f=f*f*(3.-2.*f); float n=dot(i,vec3(1.,57.,113.));
+  float a=fract(sin(n)*43758.5),b=fract(sin(n+1.)*43758.5),c=fract(sin(n+57.)*43758.5),d=fract(sin(n+58.)*43758.5);
+  float e=fract(sin(n+113.)*43758.5),f2=fract(sin(n+114.)*43758.5),g=fract(sin(n+170.)*43758.5),h=fract(sin(n+171.)*43758.5);
+  return mix(mix(mix(a,b,f.x),mix(c,d,f.x),f.y),mix(mix(e,f2,f.x),mix(g,h,f.x),f.y),f.z); }
+// Original gradient studio: cool white key from above, teal/blue band at the
+// horizon, deep violet floor and two soft strip lights. Gives the glass a
+// coloured gradient instead of a grey room reflection.
+vec3 studio(vec3 d){
+  vec3 c=mix(vec3(.10,.07,.26),vec3(.05,.32,.42),smoothstep(-.6,.05,d.y));
+  c=mix(c,vec3(.78,.86,.95),smoothstep(.05,.75,d.y));
+  c+=vec3(.95,.97,1.)*smoothstep(.06,.0,abs(d.x+.55))*smoothstep(-.2,.5,d.y)*1.2;
+  c+=vec3(.55,.75,1.)*smoothstep(.05,.0,abs(d.y-.18-d.x*.25))*smoothstep(.2,.9,d.x)*.9;
+  return c;
+}
+// Glass after the reference's logo shader: the rendered scene is refracted
+// through the letter with channel-separated slides (x1/x2/x4); roughness is
+// varied by two noise samples, which blurs the refraction in patches and gives
+// the surface its visible texture. Fresnel (f0 .1) mixes in the environment,
+// GGX glints sit on top, and a faint thin-film sheen tints glancing angles.
 void main(){
 vec3 N=normalize(vNormal); if(!gl_FrontFacing) N=-N;
 vec3 V=normalize(cameraPosition-vWorld);
 vec2 screen=gl_FragCoord.xy/uResolution; vec2 vel=texture2D(uFluid,screen).rg;
 vec3 Nv=normalize((viewMatrix*vec4(N,0.)).xyz);
-float ndv=clamp(dot(N,V),0.,1.);
-float edge=1.-ndv;
-vec2 dir=-Nv.xy;
-float bend=.035+.12*edge*edge;
-float disp=(uIorRGB.r-uIorRGB.b)*(2.5+edge*10.);
-float bR=bend*(1.-disp), bG=bend, bB=bend*(1.+disp);
-float rough=clamp(uRoughness,0.,1.)*.012;
+float ndv=clamp(dot(N,V),0.,1.); float edge=1.-ndv;
+vec3 np=vWorld*uNoiseScale*.18+vec3(0.,0.,uTime*.05);
+float n1=vnoise(np), n2=vnoise(np*2.3+7.1);
+float rough=clamp(uRoughness*(.45+1.1*n1+.6*n2),0.,1.);
+vec2 shift=-Nv.xy*(.1+.08*edge);
+vec2 dir=normalize(shift+vec2(.0001));
+float ior=(uIorRGB.r-uIorRGB.b);
+vec2 blurDir=(vec2(n1,n2)-.5)*rough*.09;
 vec3 refr=vec3(0.);
-for(int i=0;i<5;i++){
-  float a=float(i)*1.2566; vec2 o=(i==0?vec2(0.):vec2(cos(a),sin(a))*rough)+vel*.003;
-  refr+=vec3(sceneAt(screen+dir*bR+o).r,sceneAt(screen+dir*bG+o).g,sceneAt(screen+dir*bB+o).b);
+for(int i=0;i<8;i++){
+  float fi=float(i);
+  float rnd=hash(floor(gl_FragCoord.xy*.5)+fi*7.13);
+  float slide=(.005+rnd*.007)*(.4+ior*8.);
+  vec2 o=screen+shift+blurDir*(fi/7.-.5)*2.+vel*.003;
+  refr+=vec3(sceneAt(o+dir*slide).r,sceneAt(o+dir*slide*2.).g,sceneAt(o+dir*slide*4.).b);
 }
-refr/=5.;
-// Body absorption: slightly darker and cooler through the thick middle.
-refr*=mix(vec3(.80,.86,.92),vec3(1.),edge*.6);
-float F=.04+.96*pow(edge,5.);
-vec3 env=textureCube(uEnv,reflect(-V,N)).rgb;
+refr=refr/8.*.9;
+refr*=mix(vec3(.84,.9,.98),vec3(1.),edge*.5);
+float F=.1+.9*pow(edge,5.);
+vec3 R=reflect(-V,N);
+vec3 env=mix(textureCube(uEnv,R).rgb,studio(R),.65);
 vec3 L=normalize(vec3(-1.,.8,1.)); vec3 H=normalize(L+V);
-float a2=.0009; float ndh=max(dot(N,H),0.); float dd=ndh*ndh*(a2-1.)+1.; float spec=a2/(3.14159*dd*dd);
-vec3 L2=normalize(vec3(.9,-.3,.6)); vec3 H2=normalize(L2+V); float ndh2=max(dot(N,H2),0.); float dd2=ndh2*ndh2*(a2-1.)+1.; float spec2=a2/(3.14159*dd2*dd2);
-vec3 color=mix(refr,env*.85,F);
-color+=vec3(1.)*min(spec,40.)*.012+vec3(.8,.9,1.)*min(spec2,40.)*.006;
-// Thin bright line along the bevel turn instead of a broad rim glow.
-color+=vec3(.9,.95,1.)*smoothstep(.62,.9,edge)*(1.-smoothstep(.9,1.,edge))*.12;
-color*=uTint;
+float a=.003+rough*.4; float a2=a*a; float ndh=max(dot(N,H),0.); float dd=ndh*ndh*(a2-1.)+1.; float spec=a2/(3.14159*dd*dd);
+vec3 color=mix(refr,env,F*.85+.08);
+color+=vec3(1.)*min(spec,20.)*.035;
+// Thin-film sheen: hue shifts with angle and the surface noise.
+vec3 film=.5+.5*cos(6.2831*(edge*1.4+n1*.35+vec3(0.,.33,.67)));
+color+=film*(.03+.16*pow(edge,2.))*(.6+.4*n2);
+// Soft frosted patches catch a little light, so the texture reads.
+color+=vec3(.55,.65,.8)*smoothstep(.12,.3,rough)*.035;
+color*=1.08*uTint;
 float contour=step(.58,fract((vUv.x+vUv.y)*42.)); vec3 light=vec3(.17,.78,.73); color=mix(color,light,.38*uLight*contour); color=mix(color,vec3(.84,.98,.95),uLight*.14);
 color*=1.+min(length(vel),1.)*.06;
 gl_FragColor=vec4(color,(1.-uLight*.99)*(1.-uServices*.82)*(1.-uContact)); }`;
