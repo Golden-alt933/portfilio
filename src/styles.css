@@ -1463,3 +1463,64 @@ button {
     font-size: 9px;
   }
 }
+
+/* ---------- Project page highlights ----------
+   Headline numbers and the links that matter, right under the title. */
+.project-highlights {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 28px 48px;
+  margin: -18px 0 46px;
+  padding: 26px 0;
+  border-top: 1px solid #ffffff1f;
+  border-bottom: 1px solid #ffffff1f;
+}
+.project-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 22px 56px;
+  margin: 0;
+}
+.project-stats > div {
+  display: grid;
+  gap: 6px;
+}
+.project-stats dt {
+  font-size: clamp(30px, 4vw, 54px);
+  line-height: 0.95;
+  font-weight: 500;
+  letter-spacing: -0.05em;
+  color: #f4f5f2;
+}
+.project-stats dd {
+  margin: 0;
+  color: #9ba1a9;
+  font: 11px/1.4 var(--font-mono, "IBM Plex Mono", monospace);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.project-ctas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.project-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 22px;
+  border: 1px solid #ffffff59;
+  border-radius: 40px;
+  color: #f4f5f2;
+  font: 12px var(--font-mono, "IBM Plex Mono", monospace);
+  letter-spacing: 0.04em;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+.project-cta:hover,
+.project-cta:focus-visible {
+  background: #f4f5f2;
+  border-color: #f4f5f2;
+  color: #080909;
+}

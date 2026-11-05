@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { Link, Route, Routes, useParams } from "react-router-dom";
-import { X, Plus, ExternalLink } from "lucide-react";
+import { X, Plus, ExternalLink, Github, Instagram } from "lucide-react";
 import { profile, projects } from "./content";
 import { ProjectMedia } from "./Media";
 import ImmersiveHome from "./ImmersiveHome";
@@ -53,6 +53,37 @@ function ProjectPage() {
       </div>
       <h1>{project.title}</h1>
       <p className="project-deck">{project.tagline}</p>
+      {(project.stats?.length || project.instagramUrl || project.repositoryUrl || project.demoUrl) && (
+        <div className="project-highlights">
+          {project.stats?.length ? (
+            <dl className="project-stats">
+              {project.stats.map((stat) => (
+                <div key={stat.label}>
+                  <dt>{stat.value}</dt>
+                  <dd>{stat.label}</dd>
+                </div>
+              ))}
+            </dl>
+          ) : null}
+          <div className="project-ctas">
+            {project.instagramUrl && (
+              <a className="project-cta" href={project.instagramUrl} target="_blank" rel="noopener noreferrer">
+                <Instagram size={16} /> Watch on Instagram <ExternalLink size={14} />
+              </a>
+            )}
+            {project.repositoryUrl && (
+              <a className="project-cta" href={project.repositoryUrl} target="_blank" rel="noopener noreferrer">
+                <Github size={16} /> View on GitHub <ExternalLink size={14} />
+              </a>
+            )}
+            {project.demoUrl && (
+              <a className="project-cta" href={project.demoUrl} target="_blank" rel="noopener noreferrer">
+                Live demo <ExternalLink size={14} />
+              </a>
+            )}
+          </div>
+        </div>
+      )}
       <ProjectMedia project={project} />
       <div className="project-facts">
         <div>
@@ -86,30 +117,6 @@ function ProjectPage() {
           <p>{project.approach}</p>
           <h3>My contribution</h3>
           <p>{project.contribution}</p>
-          {(project.repositoryUrl || project.demoUrl) && (
-            <div className="case-links">
-              {project.repositoryUrl && (
-                <a
-                  className="text-link"
-                  href={project.repositoryUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  View source <ExternalLink size={15} />
-                </a>
-              )}
-              {project.demoUrl && (
-                <a
-                  className="text-link"
-                  href={project.demoUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Live demo <ExternalLink size={15} />
-                </a>
-              )}
-            </div>
-          )}
         </div>
       </div>
       <Link to={`/work/${next.slug}`} className="next-project">

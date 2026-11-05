@@ -24,6 +24,8 @@ export interface Project {
   year?: string;
   /** Short highlighted note next to the year (award, views, client). */
   highlight?: string;
+  /** Headline numbers shown on the project page, e.g. { value: "95K", label: "views" }. */
+  stats?: { value: string; label: string }[];
 }
 // Edit this file to add your identity, media and real projects.
 export const profile = {
@@ -48,7 +50,7 @@ export const services = [
     title: "Creative development",
     body: "Useful, expressive digital experiences. Clear interfaces and considered interactions, built to work as well as they look.",
     points: ["Interactive websites", "WebGL & motion", "Prototypes & tools"],
-    project: "wrapchik",
+    project: "restaurant-app",
   },
   {
     label: "03 / TOGETHER",
@@ -74,6 +76,10 @@ export const projects: Project[] = [
     sample: false,
     year: "2026",
     highlight: "95K views",
+    stats: [
+      { value: "95K", label: "views on Instagram" },
+      { value: "Saturnalia", label: "official fest reel" },
+    ],
     videoUrl: "/work/saturnalia-fest.mp4",
     posterUrl: "/work/saturnalia-fest.jpg",
     instagramUrl: "https://www.instagram.com/reel/DcqojygzTWy/",
@@ -98,6 +104,10 @@ export const projects: Project[] = [
     sample: false,
     year: "2026",
     highlight: "66.8K views",
+    stats: [
+      { value: "66.8K", label: "views on Instagram" },
+      { value: "Saturnalia", label: "official aftermovie" },
+    ],
     videoUrl: "/work/saturnalia-aftermovie.mp4",
     posterUrl: "/work/saturnalia-aftermovie.jpg",
     instagramUrl: "https://www.instagram.com/reel/Dcak6cZu8dT/",
@@ -121,7 +131,11 @@ export const projects: Project[] = [
     tone: "silver",
     sample: false,
     year: "2026",
-    highlight: "Motion graphics",
+    highlight: "Sold-out night",
+    stats: [
+      { value: "Sold out", label: "every pass for the night" },
+      { value: "After Effects", label: "collage motion graphics" },
+    ],
     videoUrl: "/work/navratri-motion.mp4",
     posterUrl: "/work/navratri-motion.jpg",
     instagramUrl: "https://www.instagram.com/p/DeUtjLOyv2A/",
@@ -133,26 +147,32 @@ export const projects: Project[] = [
     tools: [],
   },
   {
-    slug: "wrapchik",
-    title: "Wrapchik",
+    slug: "restaurant-app",
+    title: "Campus restaurant app",
     category: "code",
     number: "04",
-    tagline: "Campus food ordering that survives the lunch rush.",
-    tags: ["React Native", "Cloudflare Workers", "Durable Objects"],
+    tagline: "A restaurant ordering app we built to survive the campus lunch rush.",
+    tags: ["React Native", "Cloudflare Workers", "Real-time"],
     format: "Mobile app",
-    previewTitle: "WRAPCHIK",
-    previewSubtitle: "LUNCH RUSH.",
+    previewTitle: "LUNCH",
+    previewSubtitle: "RUSH.",
     tone: "terminal",
     sample: false,
     year: "2026",
-    highlight: "Real-time ordering",
-    videoUrl: "/work/wrapchik.mp4",
-    posterUrl: "/work/wrapchik.jpg",
+    highlight: "Team build",
+    stats: [
+      { value: "1 PM", label: "rush it was built for" },
+      { value: "15", label: "orders in the kitchen at once" },
+      { value: "3", label: "tiers instead of “Closed”" },
+    ],
+    videoUrl: "/work/restaurant-app.mp4",
+    posterUrl: "/work/restaurant-app.jpg",
+    repositoryUrl: "https://github.com/Golden-alt933/Wrapchikkkkkkkkkkkk",
     overview:
-      "One kitchen, fifteen orders at a time and hundreds of students at 1 PM. Wrapchik replaces the “Closed” sign with three tiers: kitchen, paid queue and waitlist, so every order has a place and an honest wait time.",
+      "A restaurant ordering app we built for a campus kitchen: one kitchen, fifteen orders at a time and hundreds of students at 1 PM. Instead of a “Closed” sign it has three tiers (kitchen, paid queue and waitlist), so every order has a place and an honest wait time.",
     approach:
-      "The kitchen ETA is computed from queue position and recalculated as the queue moves. A single Durable Object coordinates each restaurant, so two students paying in the same millisecond can never overbook it, and double-taps on a flaky campus network are made safe.",
-    contribution: "Design and full-stack development.",
+      "The kitchen ETA is computed from queue position and recalculated as the queue moves. One coordinator per restaurant means two students paying in the same millisecond can never overbook the kitchen, and double-taps on a flaky campus network are made safe.",
+    contribution: "Built as a team: design and full-stack development.",
     tools: ["Expo", "React Native", "Cloudflare Workers", "Durable Objects", "D1"],
   },
   {
@@ -168,7 +188,12 @@ export const projects: Project[] = [
     tone: "slate",
     sample: false,
     year: "2026",
-    highlight: "Voice desktop agent",
+    highlight: "Voice AI agent",
+    stats: [
+      { value: "17", label: "skills it can run" },
+      { value: "Voice", label: "text or GUI input" },
+      { value: "Local", label: "first, cloud only on request" },
+    ],
     videoUrl: "/work/friday.mp4",
     posterUrl: "/work/friday.jpg",
     repositoryUrl: "https://github.com/MicrosoftStudentChapter/friday-agent",
