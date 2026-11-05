@@ -312,3 +312,16 @@ col=mix(col,sRGBTransferEOTF(vec4(col,1.)).rgb,uIsVideo);
 col*=1.+vShade*.25;
 vec2 e=abs(vUv-.5)*2.; col*=mix(.82,1.,1.-smoothstep(.7,1.,max(e.x,e.y))*(1.-vFull));
 gl_FragColor=vec4(col,uOpacity); }`;
+
+/** Services backdrop: the active service's media, softly blurred and faint,
+ *  filling the frame behind the grid. */
+export const serviceBackdropVertex = `varying vec2 vUv; void main(){ vUv=uv; gl_Position=vec4(position.xy,0.,1.); }`;
+export const serviceBackdropFragment = `precision highp float; varying vec2 vUv;
+uniform sampler2D uMap; uniform float uOpacity,uIsVideo,uMediaAspect,uScreenAspect,uTime;
+vec3 at(vec2 uv){ vec2 p=uv-.5; if(uMediaAspect>uScreenAspect){ p.x*=uScreenAspect/uMediaAspect; } else { p.y*=uMediaAspect/uScreenAspect; } return texture2D(uMap,clamp(p*.92+.5,vec2(.001),vec2(.999))).rgb; }
+void main(){
+vec2 o=vec2(.006,.01);
+vec3 c=at(vUv)*.28+(at(vUv+o)+at(vUv-o)+at(vUv+vec2(o.x,-o.y))+at(vUv-vec2(o.x,-o.y)))*.12+(at(vUv+o*2.2)+at(vUv-o*2.2))*.12;
+c=mix(c,sRGBTransferEOTF(vec4(c,1.)).rgb,uIsVideo);
+float v=1.-smoothstep(.3,.9,length((vUv-.5)*vec2(1.,1.2)));
+gl_FragColor=vec4(c*mix(.55,1.,v),uOpacity); }`;

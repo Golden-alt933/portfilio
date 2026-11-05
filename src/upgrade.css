@@ -327,9 +327,9 @@ body[data-intro-stage="revealing"] .gui-panel {
 .service-copy {
   position: absolute;
   z-index: 3;
-  right: 6vw;
+  right: 4.5vw;
   top: 52%;
-  width: min(34vw, 470px);
+  width: min(30vw, 450px);
   transform: translateY(calc(-50% + var(--service-offset) * -48px));
 }
 .service-copy > span {
@@ -537,6 +537,73 @@ body:has(.works-index-page) {
 .service-progress {
   opacity: calc(1 - var(--service-end, 0));
 }
+
+/* ---------- Text over the 3D scene ----------
+   The canvas sits beneath the page (z -1) and the page no longer isolates
+   itself, so light text blocks can blend with "difference": white over
+   dark stays white, and wherever it crosses white it turns black. */
+.scene-host {
+  z-index: -1;
+}
+/* Body must stay transparent: its block background would cover the canvas.
+   The page colour is set on <html> instead. */
+body {
+  background-color: transparent !important;
+}
+html:has(.works-index-page) {
+  background: #e9eae6;
+}
+.immersive-home,
+.immersive-home.scene-ready {
+  isolation: auto;
+  z-index: auto;
+}
+.immersive-hero > .immersive-index,
+.immersive-hero-note,
+.immersive-scroll-hint,
+.immersive-work-scene,
+.immersive-services-stage,
+.immersive-contact-stage {
+  mix-blend-mode: difference;
+}
+
+/* Last service: a frame with corner plus marks closes in from the corners. */
+.service-frame {
+  --frame-in: var(--service-end, 0);
+  position: absolute;
+  z-index: 5;
+  inset: calc(4% - (1 - var(--frame-in)) * 14%) calc(3.6% - (1 - var(--frame-in)) * 14%);
+  border: 1px solid #ffffff8c;
+  opacity: var(--frame-in);
+  pointer-events: none;
+}
+.service-frame i {
+  position: absolute;
+  width: 34px;
+  height: 34px;
+}
+.service-frame i::before,
+.service-frame i::after {
+  content: "";
+  position: absolute;
+  background: #fff;
+}
+.service-frame i::before {
+  left: 50%;
+  top: 0;
+  width: 1px;
+  height: 100%;
+}
+.service-frame i::after {
+  top: 50%;
+  left: 0;
+  height: 1px;
+  width: 100%;
+}
+.service-frame i:nth-child(1) { left: -17px; top: -17px; }
+.service-frame i:nth-child(2) { right: -17px; top: -17px; }
+.service-frame i:nth-child(3) { left: -17px; bottom: -17px; }
+.service-frame i:nth-child(4) { right: -17px; bottom: -17px; }
 
 /* ---------- Auto-contrast ----------
    Fixed chrome is white and blends with "difference": over dark areas it

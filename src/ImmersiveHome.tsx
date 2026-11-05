@@ -481,7 +481,8 @@ export default function ImmersiveHome() {
       end: "bottom bottom",
     });
     const stateTick = () => updateState(window.scrollY, performance.now());
-    const previousBodyBackground = document.body.style.backgroundColor;
+    // The page colour lives on <html>, which paints beneath the scene canvas.
+    const previousBodyBackground = document.documentElement.style.backgroundColor;
     gsap.ticker.add(stateTick);
     const resizeObserver = new ResizeObserver(refresh);
     resizeObserver.observe(story);
@@ -491,7 +492,7 @@ export default function ImmersiveHome() {
       paletteTimeline = gsap
         .timeline({ paused: true })
         .fromTo(
-          document.body,
+          document.documentElement,
           { backgroundColor: "#080909" },
           { backgroundColor: "#D7DBDC", duration: 1, ease: "none" },
         );
@@ -570,7 +571,7 @@ export default function ImmersiveHome() {
       resizeObserver.disconnect();
       delete document.body.dataset.sceneChapter;
       document.body.style.removeProperty("--scene-light-mix");
-      document.body.style.backgroundColor = previousBodyBackground;
+      document.documentElement.style.backgroundColor = previousBodyBackground;
     };
   }, [reducedMotion, sceneFailed, rememberWork, sceneState]);
 
@@ -906,6 +907,12 @@ export default function ImmersiveHome() {
           <div className="immersive-index immersive-mono">
             <span>04 / SERVICES</span>
             <span>FROM FIRST THOUGHT TO FINISHED THING</span>
+          </div>
+          <div className="service-frame" aria-hidden="true">
+            <i />
+            <i />
+            <i />
+            <i />
           </div>
           <h2 id="services-title" className="immersive-services-heading">
             Make it <i>real.</i>
