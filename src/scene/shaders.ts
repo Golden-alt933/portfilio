@@ -4,7 +4,7 @@ export const fullscreenVertex = `varying vec2 vUv; void main(){vUv=uv; gl_Positi
 export const refractionVertex = `uniform float uDepthScale,uRipple,uTime; varying vec2 vUv; varying vec3 vNormal; varying vec3 vWorld; void main(){ vUv=uv; vec3 p=position; float radius=length(p.xy); p.z*=uDepthScale; p.z+=sin(radius*5.-uTime*2.)*uRipple*.018; vec4 world=modelMatrix*vec4(p,1.0); vWorld=world.xyz; vNormal=normalize(mat3(modelMatrix)*normal); gl_Position=projectionMatrix*viewMatrix*world; }`;
 
 export const backgroundFragment = `precision highp float; varying vec2 vUv;
-uniform float uTime,uLight,uContact,uReveal,uServices,uAspect,uPortalReveal,uPortalIsVideo,uPortalAspect,uWorks,uWorksY,uWorkMedia,uScroll;
+uniform float uTime,uLight,uContact,uReveal,uServices,uAspect,uPortalReveal,uPortalIsVideo,uPortalAspect,uWorks,uWorksX,uWorksY,uWorkMedia,uScroll;
 uniform sampler2D uFluid,uInk,uPortalMedia,uWorksMap;
 float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
 float noise(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.-2.*f); return mix(mix(hash(i),hash(i+vec2(1.,0.)),f.x),mix(hash(i+vec2(0.,1.)),hash(i+vec2(1.,1.)),f.x),f.y); }
@@ -28,6 +28,7 @@ vec3 panelPattern(float mode,vec2 p,float seed){
   c=mix(c,vec3(.95,.44,.12),smoothstep(.6,.86,ny)*.85);
   return c*mix(.5,1.,nz);
 }
+vec3 hueRotate(vec3 c,float a){ const vec3 k=vec3(.57735); float ca=cos(a); return c*ca+cross(k,c)*sin(a)+k*dot(k,c)*(1.-ca); }
 vec3 coverMedia(vec2 uv){
   vec2 m=uv-.5;
   if(uPortalAspect>uAspect){ m.x*=uAspect/uPortalAspect; } else { m.y*=uPortalAspect/uAspect; }
@@ -36,7 +37,7 @@ vec3 coverMedia(vec2 uv){
 void main(){
 vec2 v=texture2D(uFluid,vUv).rg;
 // Fluid velocity nudges the whole wall, as in the reference's scene mixer.
-vec2 uv=vUv+v*.01;
+vec2 uv=vUv+v*.012;
 // Curved wall: the viewer stands inside a cylinder of screens.
 vec2 roomP=(uv-.5)*vec2(uAspect,1.)*1.55; float th=atan(roomP.x);
 vec2 wall=vec2(th*.62,roomP.y*cos(th)*.62)+.5;
@@ -64,7 +65,10 @@ vec2 jump=(vec2(hash(id+jEpoch*1.3),hash(id-jEpoch*2.1))-.5)*.5*step(.55,hash(id
 vec2 pUv=wall*vec2(1.6,1.)+jump*size;
 vec3 pat=mix(panelPattern(mode,pUv,rnd),panelPattern(nextMode,pUv,rnd),fade);
 float blackout=1.-step(.84,hash(id+floor(uTime*(.8+rnd))))*.92;
-pat*=(.55+.45*rnd)*blackout*.42; pat=mix(pat,pat*vec3(.62,.82,1.25),.4);
+// Each panel's palette drifts around the colour wheel on its own clock.
+pat=hueRotate(pat,sin(uTime*.13+rnd*6.283)*.6);
+pat*=(.55+.5*rnd)*blackout*.56; pat=mix(pat,pat*vec3(.75,.9,1.2),.2);
+pat+=pat*pow(max(0.,sin(uTime*.9+rnd*30.)),12.)*.8;
 // While the work track is up, the active project plays across the wall,
 // softly blurred and split by the panels like a video wall.
 if(uWorkMedia>.001){
@@ -84,7 +88,7 @@ col+=(vec3(.0,.025,.15)*smoothstep(.2,1.05,uv.x)+vec3(.0,.055,.035)*smoothstep(.
 float worksAmount=abs(uWorks);
 if(worksAmount>.001){
   vec2 wq=(wall-vec2(.5,.5-uScroll))*vec2(uAspect,1.);
-  wq.y+=uWorksY;
+  wq+=vec2(uWorksX,uWorksY);
   float wa=-.2; wq=mat2(cos(wa),-sin(wa),sin(wa),cos(wa))*wq;
   wq.x*=1.+wq.y*.42;
   float textW=uAspect*1.3;
@@ -100,15 +104,24 @@ float thinX=1.-smoothstep(.004,.012,crossUv.x),thinY=1.-smoothstep(.004,.012,cro
 float longX=1.-smoothstep(.028,.04,crossUv.x),longY=1.-smoothstep(.028,.04,crossUv.y);
 float cross=max(thinX*longY,longX*thinY);
 col+=vec3(.05,.06,.08)*(gridLine*.2+cross*.3);
-col=mix(col,vec3(.012,.023,.024)+vec3(.15,.23,.22)*(gridLine*.23+cross*.65),uServices);
+vec2 sg=wall+vec2(uTime*.018,0.); sg.y+=sin(sg.x*5.+uTime*.7)*.018; sg.x+=sin(sg.y*4.-uTime*.5)*.01;
+float sGrid=1.-smoothstep(0.,.02,min(abs(fract(sg.x*64.)-.5),abs(fract(sg.y*64.)-.5)));
+vec2 sCross=abs(fract(sg*8.)-.5)*vec2(uAspect,1.);
+float sc=max((1.-smoothstep(.004,.012,sCross.x))*(1.-smoothstep(.028,.04,sCross.y)),(1.-smoothstep(.028,.04,sCross.x))*(1.-smoothstep(.004,.012,sCross.y)));
+col=mix(col,vec3(.012,.018,.022)+vec3(.15,.2,.22)*(sGrid*.25+sc*.7),uServices);
 // Pigment glow from the fluid field.
 vec3 pigment=texture2D(uInk,clamp(uv,vec2(.001),vec2(.999))).rgb;
 vec3 halo=(texture2D(uInk,clamp(uv+vec2(.025,.014),vec2(.001),vec2(.999))).rgb+texture2D(uInk,clamp(uv-vec2(.025,.014),vec2(.001),vec2(.999))).rgb)*.5;
 float wisps=.65+.35*noise(uv*85.+v*.4-uTime*.08);
-vec3 inkGlow=(pigment*.5*wisps+halo*.1)*(1.-uServices*.8)*(1.-uLight);
+vec3 inkGlow=vec3(.05,.1,.25)*min(length(v)*1.5,1.)*.25*(1.-uServices)*(1.-uLight);
 float domeY=uv.y+pow(uv.x-.5,2.)*.55; float lightWipe=mix(smoothstep(domeY-.06,domeY+.06,uLight*1.14-.1)*step(.001,uLight),1.,smoothstep(.96,1.,uLight));
 float indigoMix=smoothstep(.02,.26,uLight)*(1.-uServices); vec3 indigo=vec3(.035,.02,.5)+vec3(.05,.05,.24)*(gridLine*.5+cross*.9)+pat*.3*inPanel; col=mix(col,indigo,indigoMix);
-vec3 lightCol=vec3(.843,.859,.863); col=mix(col,lightCol,lightWipe); col=mix(col,vec3(.45,.48,.49),clamp(lightWipe*(gridLine*.045+cross*.2),0.,.3));
+vec3 lightCol=vec3(.843,.859,.863); col=mix(col,lightCol,lightWipe);
+vec2 pg=vec2((uv.x-.5)*uAspect,uv.y+uScroll*3.)*vec2(16.,16.)+v*1.5;
+float pLine=1.-smoothstep(0.,.04,min(abs(fract(pg.x)-.5),abs(fract(pg.y)-.5)));
+vec2 pc=abs(fract(pg/4.)-.5)*4.;
+float pCross=max((1.-smoothstep(.02,.05,pc.x))*(1.-smoothstep(.22,.28,pc.y)),(1.-smoothstep(.22,.28,pc.x))*(1.-smoothstep(.02,.05,pc.y)));
+col=mix(col,vec3(.42,.45,.47),clamp(lightWipe*(pLine*.07+pCross*.3),0.,.35));
 float vignette=1.-smoothstep(.2,.85,length((uv-.5)*vec2(.9,1.))); col*=mix(mix(.45,1.,vignette),1.,uLight); col*=1.+min(length(v),1.)*.8*(1.-uLight);
 col=mix(col,vec3(.006,.008,.012),uContact*.98); col+=vec3(.0,.03,.036)*(1.-smoothstep(0.,.75,length((uv-.5)*vec2(1.,1.7))))*uContact;
 col=sRGBTransferEOTF(vec4(max(col,vec3(0.)),1.)).rgb;
@@ -118,19 +131,46 @@ portal=mix(portal,sRGBTransferEOTF(vec4(portal,1.)).rgb,uPortalIsVideo);
 col=mix(col,portal*.18,clamp(uPortalReveal,0.,1.)*.35);
 gl_FragColor=vec4(col,1.); }`;
 
-export const refractionFragment = `precision highp float; varying vec2 vUv; varying vec3 vNormal,vWorld; uniform sampler2D uScene,uFluid,uInk; uniform samplerCube uEnv; uniform vec2 uResolution; uniform vec3 uIorRGB; uniform float uTime,uLight,uReveal,uServices,uContact,uRoughness,uNoiseScale,uRipple; uniform vec3 uTint;
+export const refractionFragment = `precision highp float; varying vec2 vUv; varying vec3 vNormal,vWorld;
+uniform sampler2D uScene,uFluid,uInk; uniform samplerCube uEnv; uniform vec2 uResolution; uniform vec3 uIorRGB;
+uniform float uTime,uLight,uReveal,uServices,uContact,uRoughness,uNoiseScale,uRipple; uniform vec3 uTint;
 float surfaceNoise(vec3 p){ return sin(p.x*uNoiseScale+sin(p.y*uNoiseScale*.63)+uTime*.2)*sin(p.y*uNoiseScale*.81+p.z*4.); }
-void main(){ vec3 baseN=normalize(vNormal); vec3 N=normalize(baseN+vec3(surfaceNoise(vWorld)*.035, surfaceNoise(vWorld.yzx+3.)*.035,0.)); vec3 V=normalize(cameraPosition-vWorld); vec2 screen=gl_FragCoord.xy/uResolution; vec2 vel=texture2D(uFluid,screen).rg;
-vec2 radial=(screen-.5)*vec2(uResolution.x/uResolution.y,1.); float rr=length(radial); float revealFront=uReveal*1.25; float rippleRing=exp(-pow((rr-revealFront)*19.,2.)); vec2 rippleDir=radial/max(rr,.001); vec2 fullLens=rippleDir*sin((rr-revealFront)*82.-uTime*5.2)*rippleRing*uRipple*.038; screen=clamp(screen+fullLens,vec2(.002),vec2(.998));
-vec2 bend=N.xy*.09+vec2(surfaceNoise(vWorld),surfaceNoise(vWorld.yzx+5.))*.006+vel*.004; vec2 roughDir=normalize(N.xy+vec2(.0001)); float blur=uRoughness*(.004+abs(surfaceNoise(vWorld))*.006); vec2 d=roughDir*blur; vec3 a=texture2D(uScene,clamp(screen+bend+d,vec2(.002),vec2(.998))).rgb; vec3 b=texture2D(uScene,clamp(screen+bend-d,vec2(.002),vec2(.998))).rgb; vec3 c=texture2D(uScene,clamp(screen+bend+d.yx,vec2(.002),vec2(.998))).rgb; vec3 e=texture2D(uScene,clamp(screen+bend-d.yx,vec2(.002),vec2(.998))).rgb;
-vec3 f=texture2D(uScene,clamp(screen+bend+d*1.7,vec2(.002),vec2(.998))).rgb; vec3 g=texture2D(uScene,clamp(screen+bend-d*1.7,vec2(.002),vec2(.998))).rgb; vec3 h=texture2D(uScene,clamp(screen+bend+d.yx*1.7,vec2(.002),vec2(.998))).rgb; vec3 i=texture2D(uScene,clamp(screen+bend-d.yx*1.7,vec2(.002),vec2(.998))).rgb;
-vec3 softened=(a+b+c+e+f+g+h+i)*.125; vec3 rayR=mat3(viewMatrix)*refract(-V,N,1./uIorRGB.r); vec3 rayG=mat3(viewMatrix)*refract(-V,N,1./uIorRGB.g); vec3 rayB=mat3(viewMatrix)*refract(-V,N,1./uIorRGB.b);
-vec2 offsetR=rayR.xy/max(.2,abs(rayR.z))*.11; vec2 offsetG=rayG.xy/max(.2,abs(rayG.z))*.11; vec2 offsetB=rayB.xy/max(.2,abs(rayB.z))*.11;
-vec3 dispersed=vec3(texture2D(uScene,clamp(screen+offsetR+vel*.004,vec2(.002),vec2(.998))).r,texture2D(uScene,clamp(screen+offsetG+vel*.004,vec2(.002),vec2(.998))).g,texture2D(uScene,clamp(screen+offsetB+vel*.004,vec2(.002),vec2(.998))).b); vec3 refr=mix(dispersed,softened,clamp(uRoughness*3.,0.,.8));
-vec3 reflected=textureCube(uEnv,reflect(-V,N)).rgb; float bands=pow(max(0.,dot(N,normalize(vec3(.05,.56,.83)))),4.)*.95+pow(max(0.,dot(N,normalize(vec3(-.72,.2,.66)))),10.)*.7; float bevelLight=pow(max(0.,dot(N,normalize(vec3(.45,-.25,.86)))),22.)*.85;
-float grain=surfaceNoise(vWorld)*.018; float fresnel=pow(1.-max(dot(N,V),0.),5.); vec3 studio=max(reflected,vec3(.13,.19,.3)); vec3 ink=texture2D(uInk,clamp(screen+bend*.5,vec2(.002),vec2(.998))).rgb;
-vec3 color=refr*.98+studio*(.07+fresnel*.55)+vec3(.48,.63,.91)*bands*.43+vec3(.72,.85,1.)*bevelLight*.7+grain+ink*(.12+fresnel*.16);
-float contour=step(.58,fract((vUv.x+vUv.y)*42.)); vec3 light=vec3(.17,.78,.73); color=mix(color,light,.38*uLight*contour); color=mix(color,vec3(.84,.98,.95),uLight*.14); color*=1.+min(length(vel),1.)*.12; color*=mix(vec3(1.),uTint,1.-uLight); gl_FragColor=vec4(color,(1.-uLight*.99)*(1.-uServices*.82)*(1.-uContact)*smoothstep(0.,.45,uReveal)); }`;
+float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
+vec3 sceneAt(vec2 uv){ return texture2D(uScene,clamp(uv,vec2(.002),vec2(.998))).rgb; }
+// Glass after the reference's logo shader: the already-rendered scene is
+// refracted through the letter with 8 jittered samples whose R/G/B slides
+// differ (x1/x2/x4), roughness varies with two noise samples, then a GGX
+// highlight, Schlick Fresnel (f0 .1) and an environment reflection are added.
+void main(){
+vec3 N=normalize(vNormal); vec3 V=normalize(cameraPosition-vWorld);
+vec2 screen=gl_FragCoord.xy/uResolution; vec2 vel=texture2D(uFluid,screen).rg;
+float n1=surfaceNoise(vWorld), n2=surfaceNoise(vWorld.yzx*1.7+3.);
+float rough=clamp(uRoughness*(.7+.45*n1+.35*n2),0.,1.);
+vec3 Nv=normalize((viewMatrix*vec4(N,0.)).xyz);
+float ior=(uIorRGB.r-uIorRGB.b);
+vec2 shift=-Nv.xy*.1;
+vec2 dir=normalize(shift+vec2(.0001));
+vec2 blurDir=vec2(n1,n2)*rough*.3*.05;
+vec3 acc=vec3(0.);
+for(int i=0;i<8;i++){
+  float fi=float(i);
+  float rnd=hash(gl_FragCoord.xy*.37+fi*7.13+fract(uTime)*13.);
+  float slide=(.005+rnd*.007)*(.4+ior*8.);
+  vec2 o=screen+shift+blurDir*(fi/7.-.5)*2.+vel*.004;
+  acc+=vec3(sceneAt(o+dir*slide).r,sceneAt(o+dir*slide*2.).g,sceneAt(o+dir*slide*4.).b);
+}
+vec3 refr=acc/8.*.9;
+vec3 L=normalize(vec3(-1.,.8,1.)); vec3 H=normalize(L+V);
+float a=.003+rough*.4; float a2=a*a; float ndh=max(dot(N,H),0.);
+float dd=ndh*ndh*(a2-1.)+1.; float spec=a2/(3.14159*dd*dd);
+vec3 L2=normalize(vec3(.9,-.3,.6)); vec3 H2=normalize(L2+V); float ndh2=max(dot(N,H2),0.); float dd2=ndh2*ndh2*(a2-1.)+1.; float spec2=a2/(3.14159*dd2*dd2);
+float F=.1+.9*pow(1.-max(dot(N,V),0.),5.);
+vec3 env=textureCube(uEnv,reflect(-V,N)).rgb;
+vec3 color=mix(refr,env*1.15,F*.85)+vec3(1.)*min(spec,8.)*.06*F+vec3(.75,.85,1.)*min(spec2,8.)*.025;
+color*=1.2*uTint;
+float contour=step(.58,fract((vUv.x+vUv.y)*42.)); vec3 light=vec3(.17,.78,.73); color=mix(color,light,.38*uLight*contour); color=mix(color,vec3(.84,.98,.95),uLight*.14);
+color*=1.+min(length(vel),1.)*.12;
+gl_FragColor=vec4(color,(1.-uLight*.99)*(1.-uServices*.82)*(1.-uContact)*smoothstep(0.,.45,uReveal)); }`;
 
 export const displayFragment = `precision highp float; varying vec2 vUv; uniform float uOpacity,uTime;
 void main(){
@@ -150,45 +190,45 @@ void main(){vec2 p=(vUv-.5)*2.; float r=dot(p,p); vec2 uv=vUv+p*r*.012; vec2 d=n
 
 /** Final full-frame lens pass carries the reveal/portal ripple over cards and background together. */
 export const compositeFragment = `precision highp float; varying vec2 vUv;
-uniform sampler2D uScene,uServiceMap; uniform vec2 uAspect;
-uniform float uTime,uReveal,uRainbow,uDiveBlur,uScreenReveal,uServiceAspect,uServiceIsVideo;
+uniform sampler2D uScene,uLoadingMap; uniform vec2 uAspect;
+uniform float uTime,uReveal,uRainbow,uRainbowFade,uDiveBlur;
 float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
-float noise(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.-2.*f); return mix(mix(hash(i),hash(i+vec2(1.,0.)),f.x),mix(hash(i+vec2(0.,1.)),hash(i+vec2(1.,1.)),f.x),f.y); }
 vec3 sceneAt(vec2 uv){ return texture2D(uScene,clamp(uv,vec2(.002),vec2(.998))).rgb; }
+vec3 rainbowAt(vec2 uv){
+  float hue=uv.y*.55+uv.x*.06+sin(uv.y*5.+uTime*.3)*.05+uTime*.025;
+  vec3 rb=.52+.48*cos(6.2831853*(hue+vec3(0.,.33,.67)));
+  return mix(rb,vec3(1.),pow(abs(sin(uv.y*9.+uTime*.4)),18.)*.2);
+}
 void main(){
 vec2 c=vUv-.5; vec2 rad=c*vec2(uAspect.x,1.); float r=length(rad);
-// Burst open, after the reference's final composite: the scene starts
-// magnified 2x and expands to full size inside a soft radial front, with a
-// single sine-envelope lens push (no oscillating rings).
+// Burst open, after the reference's final composite: inside an expanding
+// soft radial front the scene grows from 2x to full size, while the loader
+// drawing outside it is pushed outward by the same sine envelope.
 float L=clamp(uReveal,0.,1.); float e=1.-pow(1.-L,3.);
 float front=L*1.4; float soft=mix(.2,.9,L);
-float env=sin(L*3.14159265)*.1*(1.-smoothstep(0.,max(front,.001),r));
-vec2 uv=.5+c*mix(.5,1.,e)*(1.-env);
+float env=sin(L*3.14159265)*.1;
+vec2 uv=.5+c*mix(.5,1.,e)*(1.-env*(1.-smoothstep(0.,max(front,.001),r)));
+vec2 loadUv=.5+c*(1.-env*2.2);
 float mask=mix(1.-smoothstep(front-soft,front,r),1.,step(.999,L));
 vec3 color;
 if(uDiveBlur>.001){
-  // Flying into the side of the R: zoom streaks plus a sideways smear.
   vec3 acc=vec3(0.);
   for(int i=0;i<10;i++){ float k=float(i)/9.; acc+=sceneAt(.5+(uv-.5)*(1.-k*.16*uDiveBlur)+vec2(k*.04*uDiveBlur,0.)); }
   color=acc/10.;
 } else { color=sceneAt(uv); }
-color*=mask;
+vec3 loading=texture2D(uLoadingMap,clamp(loadUv,vec2(.001),vec2(.999))).rgb*(1.-step(.999,L));
+color=mix(loading,color,mask);
+// Rainbow face: soft and grainy, then it dissolves smoothly to black before
+// the services scene arrives.
 if(uRainbow>.001){
-  float hue=uv.y*.55+uv.x*.06+sin(uv.y*5.+uTime*.3)*.05+uTime*.025;
-  vec3 rb=.52+.48*cos(6.2831853*(hue+vec3(0.,.33,.67)));
-  rb=mix(rb,vec3(1.),pow(abs(sin(uv.y*9.+uTime*.4)),18.)*.2);
-  rb=sRGBTransferEOTF(vec4(clamp(rb,0.,1.),1.)).rgb;
-  // The rainbow face becomes a screen: service media shows through animated
-  // noise, with a barrel lens and RGB taps that relax as it resolves.
-  vec2 m=c; if(uServiceAspect>uAspect.x){ m.x*=uAspect.x/uServiceAspect; } else { m.y*=uServiceAspect/uAspect.x; }
-  float lensK=(1.-uScreenReveal)*.6;
-  vec2 lm=m*(1.-lensK*dot(m,m));
-  vec2 ca=m*.012*(1.-uScreenReveal*.7);
-  vec3 media=vec3(texture2D(uServiceMap,clamp(lm+ca+.5,vec2(.002),vec2(.998))).r,texture2D(uServiceMap,clamp(lm+.5,vec2(.002),vec2(.998))).g,texture2D(uServiceMap,clamp(lm-ca+.5,vec2(.002),vec2(.998))).b);
-  media=mix(media,sRGBTransferEOTF(vec4(media,1.)).rgb,uServiceIsVideo);
-  float n=noise(vUv*vec2(uAspect.x,1.)*6.+vec2(uTime*.5,-uTime*.3))*.72+noise(vUv*34.-uTime)*.28;
-  float reveal=smoothstep(n-.07,n+.07,uScreenReveal*1.24-.12);
-  color=mix(color,mix(rb,media,reveal),uRainbow);
+  vec2 j=vec2(.012,.02);
+  vec3 rb=(rainbowAt(uv)*2.+rainbowAt(uv+j)+rainbowAt(uv-j)+rainbowAt(uv+vec2(j.y,-j.x))+rainbowAt(uv-vec2(j.y,-j.x)))/6.;
+  float grain=hash(gl_FragCoord.xy+fract(uTime*37.)*vec2(91.,57.))-.5;
+  rb=clamp(rb+grain*.22,0.,1.);
+  rb=sRGBTransferEOTF(vec4(rb,1.)).rgb;
+  float fade=smoothstep(0.,1.,uRainbowFade);
+  rb=mix(rb,vec3(grain*.02+.004),fade);
+  color=mix(color,rb,uRainbow);
 }
 gl_FragColor=vec4(color,1.);
 #include <colorspace_fragment>

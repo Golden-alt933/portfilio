@@ -32,6 +32,14 @@
   vector-effect: non-scaling-stroke;
   opacity: calc(0.34 * (1 - clamp(0, calc((var(--finale-progress, 0) - 0.72) * 3.6), 1)));
 }
+/* The grid closes in from the sides: horizontal guides slide in from
+   alternating edges, verticals drop in. */
+.create-wordmark__guides path[data-kind="h"] {
+  transform: translateX(calc((1 - var(--guide-progress)) * 900px * (var(--guide-order) - 3) / 3));
+}
+.create-wordmark__guides path[data-kind="v"] {
+  transform: translateX(calc((1 - var(--guide-progress)) * (var(--guide-order) - 3) * 220px));
+}
 .create-wordmark__guides path[data-kind="c"],
 .create-wordmark__guides path[data-kind="d"] {
   stroke-dasharray: 0.004 0.006;

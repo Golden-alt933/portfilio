@@ -8,6 +8,7 @@ import { FluidField } from "./scene/FluidField";
 import { SceneChoreography } from "./scene/choreography";
 import { directMp4Url, ProjectVideoTexture } from "./scene/media";
 import { sceneTweaks } from "./sceneTweaks";
+import { drawLoaderImage } from "./scene/loaderImage";
 import { services as serviceList } from "./content";
 import {
   backgroundFragment,
@@ -266,10 +267,8 @@ export default function HeroScene({
         uRipple: { value: 0 },
         uRainbow: { value: 0 },
         uDiveBlur: { value: 0 },
-        uScreenReveal: { value: 0 },
-        uServiceMap: { value: null },
-        uServiceAspect: { value: 1200 / 760 },
-        uServiceIsVideo: { value: 0 },
+        uRainbowFade: { value: 0 },
+        uLoadingMap: { value: null },
       },
       vertexShader: fullscreenVertex,
       fragmentShader: compositeFragment,
@@ -279,6 +278,12 @@ export default function HeroScene({
     });
     const compositePlane = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), compositeMaterial);
     compositeScene.add(compositePlane);
+    const loaderCanvas = document.createElement("canvas");
+    drawLoaderImage(loaderCanvas, window.innerWidth, window.innerHeight);
+    const loaderTexture = new THREE.CanvasTexture(loaderCanvas);
+    loaderTexture.colorSpace = THREE.SRGBColorSpace;
+    compositeMaterial.uniforms.uLoadingMap.value = loaderTexture;
+    let loaderSize = `${window.innerWidth}x${window.innerHeight}`;
     const backgroundTarget = new THREE.WebGLRenderTarget(1, 1, {
       minFilter: THREE.LinearFilter,
       magFilter: THREE.LinearFilter,
@@ -310,6 +315,7 @@ export default function HeroScene({
         uPortalAspect: { value: 1200 / 760 },
         uWorksMap: { value: null },
         uWorks: { value: 0 },
+        uWorksX: { value: 0 },
         uWorksY: { value: 0 },
         uWorkMedia: { value: 0 },
         uScroll: { value: 0 },
@@ -868,20 +874,23 @@ export default function HeroScene({
       // Rainbow dive: the R regains depth and turns its rainbow side to the
       // camera, the camera flies into that face until it fills the frame, and
       // services take over underneath before the rainbow clears.
-      const diveTurn =
-        THREE.MathUtils.smoothstep(portalTravel, 0.04, 0.42) * (1 - contactMix);
+      // Two-step turn: a slight tilt that shows a sliver of rainbow while the
+      // vision copy is read, then the next scroll turns it fully side-on.
+      const tiltSoft = THREE.MathUtils.smoothstep(portalTravel, 0.02, 0.16);
+      const tiltFull = THREE.MathUtils.smoothstep(portalTravel, 0.42, 0.6);
+      const diveTurn = (tiltSoft * 0.28 + tiltFull * 0.72) * (1 - contactMix);
       // The zoom releases while the rainbow still covers the frame, so the
       // camera is back in place by the time services is revealed.
       const diveZoom =
-        THREE.MathUtils.smoothstep(portalTravel, 0.4, 0.9) *
+        THREE.MathUtils.smoothstep(portalTravel, 0.55, 0.88) *
         (1 - THREE.MathUtils.smoothstep(servicesMix, 0, 0.45)) *
         (1 - contactMix);
       const diveCover =
-        THREE.MathUtils.smoothstep(portalTravel, 0.7, 0.86) *
-        (1 - THREE.MathUtils.smoothstep(servicesMix, 0.2, 1)) *
+        THREE.MathUtils.smoothstep(portalTravel, 0.74, 0.84) *
+        (1 - THREE.MathUtils.smoothstep(servicesMix, 0.6, 1)) *
         (1 - contactMix);
       const palePhase =
-        paleFlatten * (1 - THREE.MathUtils.smoothstep(portalTravel, 0.8, 0.92));
+        paleFlatten * (1 - THREE.MathUtils.smoothstep(portalTravel, 0.78, 0.86));
       const light = Math.max(lightMix, palePhase) * (1 - contactMix);
       const portalPulse = 0;
       const cameraApproach = Math.max(0, cameraDive - portalTravel * 1.8);
@@ -995,6 +1004,9 @@ export default function HeroScene({
       // Video wall during the work track; the wall scrolls with the page.
       bgMaterial.uniforms.uWorkMedia.value = workMix * (1 - lightMix);
       bgMaterial.uniforms.uScroll.value = (window.scrollY / Math.max(1, height)) * 0.06;
+      // WORKS crosses the wall from top-left to bottom-right.
+      bgMaterial.uniforms.uWorksX.value =
+        THREE.MathUtils.lerp(0.5, -0.5, s.worksTravel ?? 0) * (width / height);
       bgMaterial.uniforms.uWorksY.value = THREE.MathUtils.lerp(-0.62, 0.62, s.worksTravel ?? 0);
       // Refraction samples an independent background target, avoiding feedback from the letter/portal.
       renderer.setRenderTarget(backgroundTarget);
@@ -1130,7 +1142,10 @@ export default function HeroScene({
         );
       });
       const serviceTexture = serviceProjectTexture.texture;
-      const screenSettle = THREE.MathUtils.smoothstep(servicesProgress, 0, 0.1);
+      const screenArrive = THREE.MathUtils.smoothstep(servicesProgress, 0, 0.1);
+      // On the last service the screen flattens and wipes out to full frame.
+      const screenFull = THREE.MathUtils.smoothstep(servicesProgress, 0.88, 0.98);
+      const screenSettle = screenArrive * (1 - screenFull);
       const screenOpacity = servicesMix * (1 - contactMix) * serviceVisibility;
       servicePortal.visible = screenOpacity > 0.005 && !reducedRef.current;
       if (servicePortal.visible) {
@@ -1155,16 +1170,21 @@ export default function HeroScene({
           -SCREEN_DISTANCE,
         );
         servicePortal.scale.set(w, h, 1);
-        servicePortal.rotation.set(0, (mobile ? 0.12 : 0.3) * screenSettle, 0);
+        servicePortal.rotation.set(
+          (mobile ? 0 : -0.07) * screenSettle,
+          (mobile ? 0.14 : 0.48) * screenSettle,
+          (mobile ? 0 : 0.025) * screenSettle,
+        );
         const u = serviceMaterial.uniforms;
         u.uTime.value = now * 0.001;
         u.uScroll.value = servicesProgress;
         u.uSize.value = h;
-        u.uBow.value = 0.03 + 0.05 * screenSettle;
+        u.uBow.value = 0.02 + 0.16 * screenSettle;
         // Strong depth wave on arrival that relaxes as the screen settles,
         // plus a little extra while scrolling.
         u.uWave.value =
-          0.05 + (1 - screenSettle) * 0.32 + Math.min(Math.abs(s.scrollVelocity) * 0.004, 0.12);
+          0.04 + (1 - screenArrive) * 0.32 + screenFull * (1 - screenFull) * 0.5 +
+          Math.min(Math.abs(s.scrollVelocity) * 0.004, 0.12);
         u.uOpacity.value = screenOpacity;
         u.uMap.value = serviceTexture;
         u.uMedia.value = serviceTexture;
@@ -1191,11 +1211,16 @@ export default function HeroScene({
       compositeMaterial.uniforms.uDiveBlur.value =
         Math.sin(Math.PI * Math.min(1, diveZoom)) * (1 - contactMix) +
         Math.sin(Math.PI * diveTurn) * 0.35 * (1 - servicesMix);
-      compositeMaterial.uniforms.uScreenReveal.value =
-        THREE.MathUtils.smoothstep(portalTravel, 0.8, 0.97);
-      compositeMaterial.uniforms.uServiceMap.value = serviceProjectTexture.texture;
-      compositeMaterial.uniforms.uServiceAspect.value = serviceProjectTexture.aspect;
-      compositeMaterial.uniforms.uServiceIsVideo.value = serviceProjectTexture.isVideo ? 1 : 0;
+      compositeMaterial.uniforms.uRainbowFade.value =
+        THREE.MathUtils.smoothstep(portalTravel, 0.83, 0.9);
+      if (reveal < 0.999) {
+        const size = `${width}x${height}`;
+        if (size !== loaderSize) {
+          loaderSize = size;
+          drawLoaderImage(loaderCanvas, width, height);
+          loaderTexture.needsUpdate = true;
+        }
+      }
       renderer.setRenderTarget(null);
       renderer.clear(true, true, true);
       renderer.render(compositeScene, compositeCamera);
@@ -1237,6 +1262,7 @@ export default function HeroScene({
       typeMat.dispose();
       createTexture.dispose();
       worksTexture.dispose();
+      loaderTexture.dispose();
       rGeometry.dispose();
       rMaterial.dispose();
       contactPlane.geometry.dispose();

@@ -15,182 +15,185 @@
   bottom: 9%;
 }
 
-/* ---------- Material panel ---------- */
-.material-panel {
-  --mp-bg: #0c0e10d9;
+/* ---------- Logo GUI (lil-gui style) ---------- */
+.gui-panel {
   position: fixed;
   z-index: 30;
-  left: max(5vw, 74px);
-  bottom: 26px;
-  width: 268px;
-  border: 1px solid #ffffff24;
-  border-radius: 6px;
-  background: var(--mp-bg);
-  backdrop-filter: blur(10px);
-  color: #c9ccc9;
-  font: 10px/1.4 var(--font-mono, monospace);
+  color: #cfd2cf;
+  font: 10px/1.4 var(--font-mono, "IBM Plex Mono", monospace);
   letter-spacing: 0.04em;
   opacity: calc(1 - min(1, var(--hero-exit, 0) * 2.4));
   transition: opacity 0.25s ease;
 }
-body:not([data-scene-chapter="hero"]) .material-panel,
-body[data-intro-stage="revealing"] .material-panel {
+body:not([data-scene-chapter="hero"]) .gui-panel,
+body[data-intro-stage="revealing"] .gui-panel {
   opacity: 0;
   pointer-events: none;
 }
-.material-panel header {
+.gui-panel header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 7px 8px 7px 11px;
-  color: #8e928f;
-  text-transform: uppercase;
+  justify-content: center;
+  gap: 14px;
+  padding: 6px 4px;
+  color: #b8bbb8;
 }
-.material-panel header button,
-.material-panel__quat button {
+.gui-toggle {
   display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  border: 1px solid #ffffff2c;
-  border-radius: 3px;
-  padding: 3px 5px;
-  background: transparent;
-  color: #d9dbd8;
-  font: inherit;
+  gap: 2px;
+  border: 0;
+  padding: 3px;
+  background: none;
   cursor: pointer;
 }
-.material-panel header button:hover,
-.material-panel__quat button:hover {
-  border-color: #d7ff00;
-  color: #d7ff00;
+.gui-toggle i {
+  display: block;
+  width: 1px;
+  height: 8px;
+  background: #9a9d9a;
 }
-.material-panel__body {
-  border-top: 1px solid #ffffff1a;
-  padding: 9px 11px 11px;
+.gui-toggle[aria-expanded="false"] i:last-child {
+  transform: rotate(90deg) translateX(-1px);
 }
-.material-panel__rows label {
+.gui-quaternion {
+  right: 5vw;
+  top: 128px;
+  width: 170px;
   display: grid;
-  grid-template-columns: 74px 1fr 42px;
-  align-items: center;
-  gap: 8px;
-  padding: 3px 0;
+  justify-items: center;
 }
-.material-panel__rows output {
-  color: #f1f2ef;
+.gui-quat-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+.gui-quat-row b {
+  width: 14px;
+  height: 14px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: #a9aaa9;
+}
+.gui-quat-row code {
+  min-width: 26px;
+  padding-left: 4px;
+  border-left: 1px solid #ffffff40;
+  color: #e9eae7;
+  font: inherit;
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
-.material-panel input[type="range"] {
+.gui-gizmo {
+  width: 96px;
+  height: 96px;
+  cursor: grab;
+  touch-action: none;
+}
+.gui-gizmo:active {
+  cursor: grabbing;
+}
+.gui-gizmo:focus-visible,
+.gui-panel button:focus-visible,
+.gui-panel input:focus-visible {
+  outline: 1px solid #d7ff00;
+  outline-offset: 3px;
+}
+.gui-reset {
+  margin-top: 10px;
+  border: 0;
+  padding: 2px 4px;
+  background: none;
+  color: #c7cac7;
+  font: 700 10px/1.2 var(--font-mono, monospace);
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+.gui-reset:hover {
+  color: #d7ff00;
+}
+.gui-material {
+  left: max(5vw, 74px);
+  bottom: 24px;
+  width: 280px;
+  padding: 2px 10px 8px;
+  border-radius: 4px;
+  background: #0b0d0fb3;
+  backdrop-filter: blur(6px);
+}
+.gui-rows label {
+  display: grid;
+  grid-template-columns: 82px 1fr 64px;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0;
+}
+.gui-rows label > span {
+  color: #c9ccc9;
+}
+.gui-rows output {
+  color: #e9eae7;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: clip;
+}
+.gui-rows input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
   width: 100%;
   height: 14px;
   margin: 0;
-  background: transparent;
-  accent-color: #d7ff00;
+  background: linear-gradient(#8e918e, #8e918e) 0 50% / var(--fill, 50%) 1px no-repeat,
+    linear-gradient(#ffffff2a, #ffffff2a) 0 50% / 100% 1px no-repeat;
   cursor: pointer;
 }
-.material-panel input[type="color"] {
-  width: 100%;
-  height: 16px;
-  border: 1px solid #ffffff33;
+.gui-rows input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 9px;
+  height: 13px;
   border-radius: 2px;
+  background: #c9cbc9;
+}
+.gui-rows input[type="range"]::-moz-range-thumb {
+  width: 9px;
+  height: 13px;
+  border: 0;
+  border-radius: 2px;
+  background: #c9cbc9;
+}
+.gui-rows input[type="color"] {
+  width: 20px;
+  height: 20px;
+  border: 0;
   padding: 0;
   background: none;
   cursor: pointer;
 }
-.material-panel__orient {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px dashed #ffffff1f;
+.gui-rows input[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 0;
 }
-.material-gizmo {
-  position: relative;
-  flex: none;
-  width: 80px;
-  height: 80px;
-  border: 1px solid #ffffff3a;
-  border-radius: 50%;
-  background:
-    radial-gradient(circle, transparent 61%, #ffffff12 62%, transparent 63%),
-    radial-gradient(circle, #ffffff10, transparent 70%);
-  cursor: grab;
-  touch-action: none;
+.gui-rows input[type="color"]::-webkit-color-swatch {
+  border: 0;
+  border-radius: 2px;
 }
-.material-gizmo:active {
-  cursor: grabbing;
+.gui-color-text {
+  grid-column: 2 / 4;
+  grid-row: 1;
+  margin-left: 30px;
+  text-align: left !important;
+  color: #9fa29f !important;
 }
-.material-gizmo:focus-visible {
-  outline: 2px solid #d7ff00;
-  outline-offset: 3px;
+.gui-rows label:has(.gui-color-text) input[type="color"] {
+  grid-column: 2;
+  grid-row: 1;
 }
-.material-gizmo .axis {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  background: #ffffff2a;
-}
-.material-gizmo .axis-x {
-  width: 60px;
-  height: 1px;
-  translate: -50% 0;
-  background: linear-gradient(90deg, #ffffff40 50%, #ff3d5a 50%);
-}
-.material-gizmo .axis-y {
-  width: 1px;
-  height: 60px;
-  translate: 0 -50%;
-  background: linear-gradient(180deg, #44e07a 50%, #ffffff40 50%);
-}
-.material-gizmo .axis::after {
-  content: "";
-  position: absolute;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-}
-.material-gizmo .axis-x::after {
-  right: -3px;
-  top: -3px;
-  background: #ff3d5a;
-}
-.material-gizmo .axis-y::after {
-  left: -3px;
-  top: -3px;
-  background: #44e07a;
-}
-.material-gizmo b {
-  position: absolute;
-  left: calc(50% - 6px);
-  top: calc(50% - 6px);
-  width: 12px;
-  height: 12px;
-  border: 2px solid #0c0e10;
-  border-radius: 50%;
-  background: #4f8cff;
-  box-shadow: 0 0 0 1px #4f8cff;
-  transition: transform 60ms linear;
-}
-.material-panel__quat {
-  display: grid;
-  gap: 5px;
-  min-width: 0;
-}
-.material-panel__quat span {
-  color: #8e928f;
-}
-.material-panel__quat code {
-  color: #f1f2ef;
-  font: inherit;
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-}
-.material-panel__quat button {
-  width: fit-content;
-}
-.material-panel.is-collapsed {
-  width: auto;
+.gui-reset--inline {
+  margin-top: 2px;
+  padding-left: 0;
+  font-weight: 400;
+  color: #8e918e;
 }
 
 /* ---------- Works track ---------- */
@@ -501,6 +504,40 @@ body:has(.works-index-page) {
   }
 }
 
+/* MISSION / VISION: the outline draws itself in and rises as the chapter
+   arrives (stroke length 500, as in the reference). */
+.immersive-statement h2.statement-heading {
+  -webkit-text-stroke: 0;
+  color: inherit;
+}
+.statement-heading svg {
+  display: block;
+  height: 0.9em;
+  width: auto;
+  overflow: visible;
+  transform: translateY(calc((1 - min(1, var(--chapter-progress, 1) * 1.25)) * 48px));
+}
+.statement-heading text {
+  font: 500 100px/1 var(--ih-sans);
+  letter-spacing: -0.07em;
+  fill: transparent;
+  stroke: #687674;
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+  stroke-dasharray: 500;
+  stroke-dashoffset: calc(500 * (1 - min(1, var(--chapter-progress, 1) * 1.25)));
+}
+.immersive-home.is-static .statement-heading text {
+  stroke-dashoffset: 0;
+}
+
+/* Services copy steps aside while the last screen goes full frame. */
+.service-chapter .service-copy,
+.immersive-services-heading,
+.service-progress {
+  opacity: calc(1 - var(--service-end, 0));
+}
+
 /* ---------- Auto-contrast ----------
    Fixed chrome is white and blends with "difference": over dark areas it
    stays white, over pale areas (or a white card) it flips to black, per pixel. */
@@ -529,7 +566,7 @@ body:has(.works-index-page) {
 
 /* ---------- Responsive ---------- */
 @media (max-width: 1000px), (max-height: 620px) {
-  .material-panel {
+  .gui-panel {
     display: none;
   }
 }

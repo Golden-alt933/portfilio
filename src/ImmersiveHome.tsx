@@ -255,7 +255,7 @@ export default function ImmersiveHome() {
       const lightEnter = paleFlatten;
       // Services only takes over at the very bottom of the rainbow dive.
       const lightExit =
-        1 - smooth((scroll - (metrics[4].start - vh * 0.2)) / (vh * 0.2));
+        1 - smooth((scroll - (metrics[4].start - vh * 0.4)) / (vh * 0.18));
       const lightMix = clamp(lightEnter * lightExit);
       const servicesMix =
         smooth((scroll - (metrics[4].start - vh * 0.2)) / (vh * 0.2)) *
@@ -434,6 +434,11 @@ export default function ImmersiveHome() {
       story.style.setProperty(
         "--service-progress",
         servicesProgress.toFixed(3),
+      );
+      // Copy fades while the last service screen wipes out to full frame.
+      story.style.setProperty(
+        "--service-end",
+        (reducedMotion ? 0 : smooth((servicesProgress - 0.86) / 0.08)).toFixed(3),
       );
       document.body.dataset.sceneChapter = chapter;
       document.body.style.setProperty("--scene-light-mix", String(lightMix));
@@ -778,7 +783,12 @@ export default function ImmersiveHome() {
           <span className="immersive-section-kicker immersive-mono">
             MAKE IT MEAN SOMETHING
           </span>
-          <h2 id="mission-title">MISSION</h2>
+          <h2 id="mission-title" className="statement-heading">
+            <span className="immersive-visually-hidden">MISSION</span>
+            <svg viewBox="0 0 470 100" aria-hidden="true" focusable="false">
+              <text x="2" y="86">MISSION</text>
+            </svg>
+          </h2>
           <div className="immersive-statement-copy">
             <h3>
               <span>Feeling is the</span>
@@ -816,7 +826,12 @@ export default function ImmersiveHome() {
           <span className="immersive-section-kicker immersive-mono">
             TWO CRAFTS, SHARED CURIOSITY
           </span>
-          <h2 id="vision-title">VISION</h2>
+          <h2 id="vision-title" className="statement-heading">
+            <span className="immersive-visually-hidden">VISION</span>
+            <svg viewBox="0 0 470 100" aria-hidden="true" focusable="false">
+              <text x="2" y="86">VISION</text>
+            </svg>
+          </h2>
           <div className="immersive-statement-copy">
             <h3>
               <span>A good idea</span>
