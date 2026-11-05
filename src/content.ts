@@ -74,6 +74,7 @@ export const projects: Project[] = [
     sample: false,
     year: "2026",
     highlight: "95K views",
+    videoUrl: "/work/saturnalia-fest.mp4",
     posterUrl: "/work/saturnalia-fest.jpg",
     instagramUrl: "https://www.instagram.com/reel/DcqojygzTWy/",
     overview:
@@ -97,6 +98,7 @@ export const projects: Project[] = [
     sample: false,
     year: "2026",
     highlight: "66.8K views",
+    videoUrl: "/work/saturnalia-aftermovie.mp4",
     posterUrl: "/work/saturnalia-aftermovie.jpg",
     instagramUrl: "https://www.instagram.com/reel/Dcak6cZu8dT/",
     overview:
@@ -113,13 +115,14 @@ export const projects: Project[] = [
     number: "03",
     tagline: "A collage-style motion graphics promo for a sold-out Navratri night.",
     tags: ["Motion graphics", "Collage", "Promo"],
-    format: "Reel / 9:16",
+    format: "Promo / 16:9",
     previewTitle: "DISCO &",
     previewSubtitle: "FIREWORKS.",
     tone: "silver",
     sample: false,
     year: "2026",
     highlight: "Motion graphics",
+    videoUrl: "/work/navratri-motion.mp4",
     posterUrl: "/work/navratri-motion.jpg",
     instagramUrl: "https://www.instagram.com/p/DeUtjLOyv2A/",
     overview:

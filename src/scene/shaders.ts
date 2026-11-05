@@ -198,9 +198,35 @@ gl_FragColor=vec4(c,uOpacity*.85);
 
 export const panelVertex = fullscreenVertex;
 
+/** Work card as a clear glass screen: the image stays sharp, colour only
+ *  splits right at the edges, a diagonal sheen and top gloss sit on the
+ *  surface, and a thin bright rim with a soft halo makes it glow. */
 export const panelFragment = `precision highp float; varying vec2 vUv; uniform sampler2D uMap,uMedia; uniform float uOpacity,uMediaMix,uMediaIsVideo,uMediaAspect,uMapAspect,uFrameAspect,uDim;
 vec2 coverUv(vec2 uv,float aspect){ vec2 p=uv-.5; if(aspect>uFrameAspect){p.x*=uFrameAspect/aspect;} else {p.y*=aspect/uFrameAspect;} return clamp(p+.5,vec2(.002),vec2(.998)); }
-void main(){vec2 p=(vUv-.5)*2.; float r=dot(p,p); vec2 uv=vUv+p*r*.012; vec2 d=normalize(p+vec2(.0001))*.0015; vec4 a=texture2D(uMap,coverUv(uv+d,uMapAspect)); vec4 b=texture2D(uMap,coverUv(uv-d,uMapAspect)); vec4 c=texture2D(uMap,coverUv(uv+d.yx,uMapAspect)); vec4 e=texture2D(uMap,coverUv(uv-d.yx,uMapAspect)); vec3 col=(a.rgb+b.rgb+c.rgb+e.rgb)*.17+vec3(a.r,b.g,c.b)*.32; vec3 media=texture2D(uMedia,coverUv(uv,uMediaAspect)).rgb; media=mix(media,sRGBTransferEOTF(vec4(media,1.)).rgb,uMediaIsVideo); col=mix(col,media,clamp(uMediaMix,0.,1.)); float edge=1.-smoothstep(.72,1.12,length(p)); col*=mix(.82,1.,edge)*uDim; vec2 q=abs(p)-vec2(.962,.93); float roundRect=length(max(q,0.))+min(max(q.x,q.y),0.)-.035; float mask=1.-smoothstep(-.007,.007,roundRect); float rim=1.-smoothstep(.012,.035,abs(roundRect)); col+=vec3(.12,.19,.24)*rim*.24; gl_FragColor=vec4(col,uOpacity*mask);}`;
+void main(){
+vec2 p=(vUv-.5)*2.; float r=dot(p,p);
+vec2 uv=vUv+p*r*.004;
+vec2 d=p*r*.0035;
+vec3 col=vec3(texture2D(uMap,coverUv(uv+d,uMapAspect)).r,texture2D(uMap,coverUv(uv,uMapAspect)).g,texture2D(uMap,coverUv(uv-d,uMapAspect)).b);
+vec3 media=vec3(texture2D(uMedia,coverUv(uv+d,uMediaAspect)).r,texture2D(uMedia,coverUv(uv,uMediaAspect)).g,texture2D(uMedia,coverUv(uv-d,uMediaAspect)).b);
+media=mix(media,sRGBTransferEOTF(vec4(media,1.)).rgb,uMediaIsVideo);
+col=mix(col,media,clamp(uMediaMix,0.,1.));
+col*=uDim;
+col*=mix(.9,1.,1.-smoothstep(.85,1.25,length(p)));
+vec2 q=abs(p)-vec2(.915,.865); float rr=length(max(q,0.))+min(max(q.x,q.y),0.)-.045;
+float mask=1.-smoothstep(-.006,.006,rr);
+// Glass surface: soft diagonal sheen and a gloss along the top.
+float band=vUv.x*.9+vUv.y;
+col+=vec3(.92,.96,1.)*(smoothstep(.22,0.,abs(band-1.25))*.07+smoothstep(.08,0.,abs(band-1.52))*.05);
+col+=vec3(.85,.92,1.)*smoothstep(.62,1.,vUv.y)*.05;
+// Thin bright rim and a soft inner glow along the edge.
+float rim=1.-smoothstep(0.,.018,abs(rr));
+float inner=(1.-smoothstep(0.,.16,-rr))*mask;
+col+=vec3(.78,.9,1.)*rim*.55+vec3(.45,.65,1.)*inner*.1;
+// Halo just outside the glass.
+float halo=(1.-smoothstep(0.,.05,rr))*step(0.,rr);
+vec3 outCol=mix(vec3(.6,.78,1.),col,mask);
+gl_FragColor=vec4(outCol,uOpacity*max(mask,halo*.35));}`;
 
 /** Final full-frame lens pass carries the reveal/portal ripple over cards and background together. */
 export const compositeFragment = `precision highp float; varying vec2 vUv;
