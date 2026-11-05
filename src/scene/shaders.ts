@@ -148,23 +148,16 @@ vec3 studio(vec3 d){
   return c;
 }
 // Glass after the reference's logo shader: the rendered scene is refracted
-// with channel-separated slides. Frost comes in uneven, amoeba-shaped
-// patches (domain-warped noise in the letter's own space, slowly drifting):
-// inside a patch the refraction is blurred over a disc and lifted milky;
-// between patches the glass stays clear.
+// with channel-separated slides through clear, polished glass, a soft
+// gradient reflection and a gentle cool glow toward the edges.
 void main(){
 vec3 N=normalize(vNormal); if(!gl_FrontFacing) N=-N;
 vec3 V=normalize(cameraPosition-vWorld);
 vec2 screen=gl_FragCoord.xy/uResolution; vec2 vel=texture2D(uFluid,screen).rg;
 vec3 Nv=normalize((viewMatrix*vec4(N,0.)).xyz);
 float ndv=clamp(dot(N,V),0.,1.); float edge=1.-ndv;
-// Amoeba frost mask.
-vec3 q=vLocal*uNoiseScale*.09+vec3(0.,0.,uTime*.025);
-vec3 warp=vec3(fbm(q+1.7),fbm(q+9.2),fbm(q+4.4))-.5;
-float field=fbm(q*1.15+warp*1.6);
-float frost=smoothstep(.47,.58,field);
-float fringe=smoothstep(.43,.5,field)*(1.-frost);
-float rough=clamp(uRoughness*.35+frost*(.35+uRoughness*2.),0.,1.);
+float rough=clamp(uRoughness*.25,0.,1.);
+float field=0.;
 vec2 shift=-Nv.xy*(.1+.08*edge);
 vec2 dir=normalize(shift+vec2(.0001));
 float ior=(uIorRGB.r-uIorRGB.b);
@@ -178,9 +171,6 @@ for(int i=0;i<8;i++){
 }
 refr=refr/8.*.92;
 refr*=mix(vec3(.84,.9,.98),vec3(1.),edge*.5);
-// Milky lift inside the frost, a slightly brighter rim along each patch.
-refr=mix(refr,refr*.55+vec3(.62,.70,.82)*.42,frost*.6);
-refr+=vec3(.7,.8,.95)*fringe*.06;
 float F=.1+.9*pow(edge,5.);
 vec3 R=reflect(-V,N);
 vec3 env=studio(R);
@@ -188,8 +178,9 @@ vec3 L=normalize(vec3(-1.,.8,1.)); vec3 H=normalize(L+V);
 float ga=.003+rough*.4; float a2=ga*ga; float ndh=max(dot(N,H),0.); float dd=ndh*ndh*(a2-1.)+1.; float spec=a2/(3.14159*dd*dd);
 vec3 color=mix(refr,env,F*.85+.06);
 color+=vec3(1.)*min(spec,20.)*.03;
-vec3 film=.5+.5*cos(6.2831*(edge*1.4+field*.5+vec3(0.,.33,.67)));
-color+=film*(.025+.14*pow(edge,2.))*(.6+.4*frost);
+// Soft glow: a gentle cool light that builds toward the bevels, so the
+// letter is lit from within without any surface texture.
+color+=vec3(.70,.80,1.)*(pow(edge,2.5)*.22+.03);
 color*=1.06*uTint;
 float contour=step(.58,fract((vUv.x+vUv.y)*42.)); vec3 light=vec3(.17,.78,.73); color=mix(color,light,.38*uLight*contour); color=mix(color,vec3(.84,.98,.95),uLight*.14);
 color*=1.+min(length(vel),1.)*.06;
@@ -231,7 +222,7 @@ for(int i=0;i<12;i++){
   float a=float(i)*.5235988+.26; vec2 d=vec2(cos(a)/uAspect.x,sin(a));
   bloom+=max(sceneAt(uv+d*.0022)-.94,0.)+max(sceneAt(uv+d*.005)-.94,0.)*.6;
 }
-col+=bloom/12.*.45*(1.-step(.9999,uVisibleService));
+col+=bloom/12.*.65*(1.-step(.9999,uVisibleService));
 // Opening burst: a soft ring grows with load progress; inside it the scene
 // zooms out from 2x, and both scene and loader drawing are pushed radially
 // by sin(r*PI), so the push peaks at the ring itself.
