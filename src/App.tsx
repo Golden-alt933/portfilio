@@ -4,6 +4,7 @@ import { X, Plus, ExternalLink } from "lucide-react";
 import { profile, projects } from "./content";
 import { ProjectMedia } from "./Media";
 import ImmersiveHome from "./ImmersiveHome";
+import WorksIndex from "./WorksIndex";
 import PortfolioShell from "./PortfolioShell";
 import SceneHost from "./SceneHost";
 import ScrollProvider from "./ScrollProvider";
@@ -128,6 +129,7 @@ export default function App() {
         <PortfolioShell>
           <Routes>
             <Route path="/" element={<ImmersiveHome />} />
+            <Route path="/works" element={<WorksIndex />} />
             <Route path="/work/:slug" element={<ProjectPage />} />
             <Route path="*" element={<MissingPage />} />
           </Routes>

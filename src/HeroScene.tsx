@@ -7,6 +7,7 @@ import { drawCreateWordmark } from "./wordmark";
 import { FluidField } from "./scene/FluidField";
 import { SceneChoreography } from "./scene/choreography";
 import { directMp4Url, ProjectVideoTexture } from "./scene/media";
+import { sceneTweaks } from "./sceneTweaks";
 import {
   backgroundFragment,
   compositeFragment,
@@ -96,6 +97,12 @@ function wordmarkTexture(text: string, canvas: HTMLCanvasElement) {
   }
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
+  if (text === "WORKS") {
+    ctx.font = "800 470px Inter, Arial, sans-serif";
+    ctx.fillStyle = "#ffffff";
+    ctx.fillText(text, 1024, 275, 1960);
+    return;
+  }
   ctx.font =
     text === "CREATE"
       ? "700 430px Inter, Arial, sans-serif"
@@ -273,6 +280,26 @@ export default function HeroScene({
     );
     typePlane.position.set(0, 0.04, -3.5);
     bgScene.add(typePlane);
+    // WORKS title passes behind the R between the hero and the card track, so
+    // the glass letter refracts it the same way it bends CREATE.
+    const worksCanvas = document.createElement("canvas");
+    const worksTexture = makeCanvasTexture(worksCanvas);
+    const paintWorks = () => {
+      wordmarkTexture("WORKS", worksCanvas);
+      worksTexture.needsUpdate = true;
+    };
+    paintWorks();
+    document.fonts?.ready.then(paintWorks).catch(() => undefined);
+    const worksMat = new THREE.MeshBasicMaterial({
+      map: worksTexture,
+      transparent: true,
+      opacity: 0,
+      depthWrite: false,
+      toneMapped: false,
+    });
+    const worksPlane = new THREE.Mesh(new THREE.PlaneGeometry(1.94, 0.493), worksMat);
+    worksPlane.position.set(0, 0.02, -3.4);
+    bgScene.add(worksPlane);
 
     // Capture an original procedural studio environment once for a stable reflection source.
     const room = new RoomEnvironment();
@@ -331,6 +358,7 @@ export default function HeroScene({
         uReveal: { value: 0 },
         uServices: { value: 0 },
         uRoughness: { value: 0.1 },
+        uTint: { value: new THREE.Vector3(1, 1, 1) },
         uContact: { value: 0 },
         uNoiseScale: { value: 9 },
         uIorRGB: { value: new THREE.Vector3(1.54, 1.51, 1.48) },
@@ -654,6 +682,7 @@ export default function HeroScene({
       firstFrame = true;
     let frame = 0;
     let lastTime = performance.now();
+    const userRot = { x: 0, y: 0 };
     const choreography = new SceneChoreography();
     const resize = () => {
       const rect = holder!.getBoundingClientRect();
@@ -775,10 +804,17 @@ export default function HeroScene({
         1 - Math.max(heroExit, workMix, Math.min(1, currentProgress * 6));
       typeMat.opacity =
         wordmarkVisibility *
+        (1 - Math.min(1, (stateRef.current.current.worksTitle ?? 0) * 2.2)) *
         (1 - contactMix) *
         (1 - lightMix) *
         (1 - servicesMix) *
         THREE.MathUtils.smoothstep(reveal, 0.72, 0.95);
+      const worksTitle = s.worksTitle ?? 0;
+      worksMat.opacity = worksTitle * 0.82 * (1 - lightMix);
+      worksPlane.visible = worksMat.opacity > 0.003;
+      const worksScale = 1.22 - worksTitle * 0.22 + heroExit * 0.08;
+      worksPlane.scale.set(worksScale * (width / height < 1 ? 1.6 : 1), worksScale, 1);
+      worksPlane.position.x = (1 - worksTitle) * 0.18 * (workEntry > 0.5 ? -1 : 1);
       fluid.setReveal(reveal);
       fluid.update(dt);
       bgMaterial.uniforms.uFluid.value = fluid.velocity.texture;
@@ -879,8 +915,14 @@ export default function HeroScene({
         1.12 - workMix * 0.08 - servicesMix * 0.05 - transitionMix * 0.06;
       const finaleShift = THREE.MathUtils.smoothstep(finaleProgress, 0, 0.45);
       letter.scale.setScalar((mobile ? 1.2 : 1.4) * (letterScale / 1.12) * (1 - contactMix * 0.42) * (1 - contactMix * finaleShift * (mobile ? 0.73 : 0.30)));
-      letter.rotation.x = motion.rotationX * (1 - contactMix);
-      letter.rotation.y = motion.rotationY * (1 - palePhase) * (1 - contactMix) + portalPulse * Math.PI * 0.5;
+      // Gizmo offsets ease in and fade out once the hero is left behind.
+      const userWeight = (1 - heroExit) * (1 - contactMix) * (reducedRef.current ? 0 : 1);
+      userRot.x += (sceneTweaks.userRotX * userWeight - userRot.x) * Math.min(1, dt * 6);
+      userRot.y += (sceneTweaks.userRotY * userWeight - userRot.y) * Math.min(1, dt * 6);
+      letter.rotation.x = motion.rotationX * (1 - contactMix) + userRot.x;
+      letter.rotation.y = motion.rotationY * (1 - palePhase) * (1 - contactMix) + portalPulse * Math.PI * 0.5 + userRot.y;
+      const q = letter.quaternion;
+      sceneTweaks.quaternion = [q.x, q.y, q.z, q.w];
       holder!.dataset.rotationX = motion.rotationX.toFixed(3);
       holder!.dataset.rotationY = motion.rotationY.toFixed(3);
       holder!.dataset.reveal = reveal.toFixed(3);
@@ -903,6 +945,14 @@ export default function HeroScene({
       rMaterial.uniforms.uFluid.value = fluid.velocity.texture;
       rMaterial.uniforms.uInk.value = fluid.dye.texture;
       rMaterial.uniforms.uTime.value = now * 0.001;
+      rMaterial.uniforms.uRoughness.value = sceneTweaks.roughness;
+      rMaterial.uniforms.uNoiseScale.value = sceneTweaks.noiseScale;
+      rMaterial.uniforms.uIorRGB.value.set(
+        1.51 + sceneTweaks.dispersion,
+        1.51,
+        1.51 - sceneTweaks.dispersion,
+      );
+      rMaterial.uniforms.uTint.value.set(...sceneTweaks.tint);
       rMaterial.uniforms.uLight.value = light;
       rMaterial.uniforms.uReveal.value = reveal;
       rMaterial.uniforms.uServices.value = servicesMix * (1 - contactMix);
@@ -917,7 +967,8 @@ export default function HeroScene({
         (1 - portalReveal) * (1 - contactMix);
       displayMaterial.uniforms.uTime.value = now * 0.001;
       const portalAmount = portalReveal * (1 - contactMix);
-      serviceMaterial.uniforms.uOpacity.value = portalAmount * 0.55;
+      // The DOM service chapters carry their own media, so the portal recedes.
+      serviceMaterial.uniforms.uOpacity.value = portalAmount * 0.55 * (1 - servicesMix * 0.93);
       serviceMaterial.uniforms.uMap.value = selectedPoster;
       serviceMaterial.uniforms.uMedia.value = selectedTexture;
       serviceMaterial.uniforms.uMediaMix.value = 1;
@@ -981,6 +1032,9 @@ export default function HeroScene({
       typePlane.geometry.dispose();
       typeMat.dispose();
       createTexture.dispose();
+      worksMat.dispose();
+      worksTexture.dispose();
+      worksPlane.geometry.dispose();
       rGeometry.dispose();
       rMaterial.dispose();
       contactPlane.geometry.dispose();

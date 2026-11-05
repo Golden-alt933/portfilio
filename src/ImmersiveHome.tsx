@@ -12,6 +12,7 @@ import {
   ArrowDown,
   ArrowLeft,
   ArrowRight,
+  ArrowUpRight,
   Code2,
   Film,
   Mail,
@@ -19,8 +20,8 @@ import {
 } from "lucide-react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { profile, projects } from "./content";
-import type { ProjectCategory } from "./content";
+import { profile, projects, services, updates } from "./content";
+import MaterialPanel from "./MaterialPanel";
 import { ProjectVisual, ReelDialog } from "./Media";
 import { CreateWordmark } from "./CreateWordmark";
 import { useSceneHost } from "./SceneHost";
@@ -38,6 +39,7 @@ import {
   workTrackScreens,
 } from "./scene/sequence";
 import "./immersive.css";
+import "./upgrade.css";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -89,14 +91,15 @@ export default function ImmersiveHome() {
     ),
   );
   const activeWorkRef = useRef(activeWork);
-  const [filter, setFilter] = useState<"all" | ProjectCategory>("all");
   const [reelOpen, setReelOpen] = useState(false);
-  const filteredProjects = useMemo(
+  const serviceProjects = useMemo(
     () =>
-      projects.filter(
-        (project) => filter === "all" || project.category === filter,
+      services.map(
+        (service) =>
+          projects.find((project) => project.slug === service.project) ??
+          projects[0],
       ),
-    [filter],
+    [],
   );
   const ready = reducedMotion || sceneReady;
   const onLoaderComplete = useCallback(() => {
@@ -268,6 +271,21 @@ export default function ImmersiveHome() {
           Math.max(vh * 0.12, metrics[4].start - metrics[3].start - vh * 0.58),
       );
       const portalProgress = portalTravel;
+      // WORKS title: a bell that peaks just as the hero copy clears and
+      // before the first card arrives.
+      const worksTitle = reducedMotion
+        ? 0
+        : Math.pow(
+            Math.sin(
+              Math.PI *
+                clamp((scroll - (workMetric.start - vh * 0.55)) / (vh * 1.35)),
+            ),
+            1.4,
+          );
+      const servicesProgress = clamp(
+        (scroll - metrics[4].start) /
+          Math.max(1, metrics[4].end - metrics[4].start - vh),
+      );
       const finaleProgress = smooth(
         (scroll - metrics[5].start) /
           Math.max(1, metrics[5].end - metrics[5].start - vh),
@@ -304,6 +322,8 @@ export default function ImmersiveHome() {
         workMediaProgress:
           activeWorkRef.current / Math.max(1, workProjects.length - 1),
         finaleProgress,
+        worksTitle,
+        servicesProgress,
       };
       story.dataset.workVisibility = workVisibility.toFixed(3);
       story.dataset.lightMix = lightMix.toFixed(3);
@@ -391,6 +411,29 @@ export default function ImmersiveHome() {
         String(sceneState.current.workMediaProgress),
       );
       story.style.setProperty("--finale-progress", String(finaleProgress));
+      story.style.setProperty("--works-title", String(worksTitle));
+      // Each service chapter holds fully visible across most of its third and
+      // crossfades at the boundaries; the first and last hold at the ends.
+      const servicePosition = servicesProgress * services.length;
+      services.forEach((_, i) => {
+        const offset = servicePosition - (i + 0.5);
+        const held =
+          (i === 0 && offset < 0) || (i === services.length - 1 && offset > 0)
+            ? 0
+            : Math.abs(offset);
+        const visibility = reducedMotion
+          ? 1
+          : smooth(1 - (held - 0.3) / 0.2);
+        story.style.setProperty(`--service-${i}`, visibility.toFixed(3));
+        story.style.setProperty(
+          `--service-${i}-offset`,
+          (reducedMotion ? 0 : Math.max(-1, Math.min(1, offset))).toFixed(3),
+        );
+      });
+      story.style.setProperty(
+        "--service-progress",
+        servicesProgress.toFixed(3),
+      );
       document.body.dataset.sceneChapter = chapter;
       document.body.style.setProperty("--scene-light-mix", String(lightMix));
       paletteTimeline?.progress(lightMix);
@@ -455,22 +498,6 @@ export default function ImmersiveHome() {
             ),
             { y: 34, autoAlpha: 0 },
             { y: 0, autoAlpha: 1, stagger: 0.08, ease: "none" },
-          ),
-        gsap
-          .timeline({
-            scrollTrigger: {
-              trigger: servicesRef.current,
-              start: "top 80%",
-              end: "center 45%",
-              scrub: 0.7,
-            },
-          })
-          .fromTo(
-            servicesRef.current!.querySelectorAll(
-              ".immersive-services-content > div:first-child, .immersive-service-list article",
-            ),
-            { y: 28, autoAlpha: 0 },
-            { y: 0, autoAlpha: 1, stagger: 0.07, ease: "none" },
           ),
         gsap
           .timeline({
@@ -608,11 +635,25 @@ export default function ImmersiveHome() {
             </a>
           )}
         </div>
+        <aside className="immersive-updates" aria-labelledby="updates-title">
+          <h2 id="updates-title" className="immersive-mono">
+            LATEST
+          </h2>
+          <ol>
+            {updates.map((item, index) => (
+              <li key={index}>
+                <time className="immersive-mono">{item.date}</time>
+                <p>{item.text}</p>
+              </li>
+            ))}
+          </ol>
+        </aside>
         <a className="immersive-scroll-hint immersive-mono" href="#work">
           <span>SCROLL TO ENTER</span>
           <ArrowDown size={15} />
         </a>
       </section>
+      {!reducedMotion && sceneReady && <MaterialPanel />}
 
       <section
         className="immersive-works-track"
@@ -623,9 +664,17 @@ export default function ImmersiveHome() {
       >
         <div className="immersive-sticky immersive-work-scene">
           <div className="immersive-index immersive-mono">
-            <span>01—06 / SELECTED WORKS</span>
-            <span>EDIT / BUILD / REPEAT</span>
+            <span>
+              01—{String(workProjects.length).padStart(2, "0")} / SELECTED
+              WORKS
+            </span>
+            <Link to="/works" className="immersive-all-works">
+              ALL WORKS <ArrowUpRight size={13} />
+            </Link>
           </div>
+          <p className="immersive-works-title" aria-hidden="true">
+            WORKS
+          </p>
           <div
             className="immersive-work-visual"
             key={workProjects[activeWork]?.slug}
@@ -642,6 +691,17 @@ export default function ImmersiveHome() {
               className="immersive-work-copy"
               key={`copy-${workProjects[activeWork]?.slug}`}
             >
+              <span className="immersive-work-meta">
+                <time className="immersive-mono">
+                  {workProjects[activeWork]?.year ?? "2026"}
+                </time>
+                <mark>
+                  {workProjects[activeWork]?.highlight ??
+                    (workProjects[activeWork]?.sample
+                      ? "Concept slot: swap in a real project"
+                      : workProjects[activeWork]?.format)}
+                </mark>
+              </span>
               <span className="immersive-work-number immersive-mono">
                 {workProjects[activeWork]?.number} /{" "}
                 {workProjects[activeWork]?.category === "video"
@@ -673,7 +733,8 @@ export default function ImmersiveHome() {
             </div>
             <div className="immersive-work-controls">
               <span className="immersive-mono">
-                {String(activeWork + 1).padStart(2, "0")} <i>/ 06</i>
+                {String(activeWork + 1).padStart(2, "0")}{" "}
+                <i>/ {String(workProjects.length).padStart(2, "0")}</i>
               </span>
               <button
                 onClick={() => nudgeWork(-1)}
@@ -803,65 +864,73 @@ export default function ImmersiveHome() {
       </section>
 
       <section
-        className="immersive-screen immersive-services"
+        className="immersive-services"
         id="services"
         ref={servicesRef}
+        style={{ "--service-count": services.length } as CSSProperties}
         aria-labelledby="services-title"
       >
-        <div className="immersive-index immersive-mono">
-          <span>04 / SERVICES</span>
-          <span>FROM FIRST THOUGHT TO FINISHED THING</span>
-        </div>
-        <div className="immersive-services-content">
-          <div>
-            <span className="immersive-section-kicker immersive-mono">
-              WHAT I BRING TO THE TABLE
-            </span>
-            <h2 id="services-title">
-              Make it
-              <br />
-              <i>real.</i>
-            </h2>
+        <div className="immersive-services-stage">
+          <div className="immersive-index immersive-mono">
+            <span>04 / SERVICES</span>
+            <span>FROM FIRST THOUGHT TO FINISHED THING</span>
           </div>
-          <div className="immersive-service-list">
-            <article>
-              <span className="immersive-mono">01</span>
-              <div>
-                <h3>Video editing</h3>
-                <p>
-                  Editorial rhythm, motion, color and sound. Thoughtful cuts
-                  that give a story room to breathe and a reason to stay.
-                </p>
+          <h2 id="services-title" className="immersive-services-heading">
+            Make it <i>real.</i>
+          </h2>
+          {services.map((service, index) => (
+            <article
+              className="service-chapter"
+              key={service.title}
+              style={
+                {
+                  "--service-visibility": `var(--service-${index}, ${index === 0 ? 1 : 0})`,
+                  "--service-offset": `var(--service-${index}-offset, 0)`,
+                } as CSSProperties
+              }
+            >
+              <div className="service-media">
+                <ProjectVisual project={serviceProjects[index]} large />
               </div>
-              <Film />
-            </article>
-            <article>
-              <span className="immersive-mono">02</span>
-              <div>
-                <h3>Creative development</h3>
-                <p>
-                  Useful, expressive digital experiences. Clear interfaces and
-                  considered interactions, built to work as well as they look.
-                </p>
+              <div className="service-copy">
+                <span className="immersive-mono">{service.label}</span>
+                <h3>
+                  {index === 0 ? (
+                    <Film size={22} />
+                  ) : index === 1 ? (
+                    <Code2 size={22} />
+                  ) : (
+                    <ArrowUpRight size={22} />
+                  )}
+                  {service.title}
+                </h3>
+                <p>{service.body}</p>
+                <ul>
+                  {service.points.map((point) => (
+                    <li key={point}>{point}</li>
+                  ))}
+                </ul>
+                <Link
+                  to={`/work/${serviceProjects[index].slug}`}
+                  className="immersive-text-link"
+                >
+                  SEE A RELATED PROJECT <ArrowRight size={13} />
+                </Link>
               </div>
-              <Code2 />
             </article>
-            <article>
-              <span className="immersive-mono">03</span>
-              <div>
-                <h3>Creative collaboration</h3>
-                <p>
-                  From an early sketch to the final frame: shaping an idea with
-                  care, curiosity and a sharp eye for detail.
-                </p>
-              </div>
-              <ArrowRight />
-            </article>
+          ))}
+          <div className="service-progress immersive-mono" aria-hidden="true">
+            {services.map((service, index) => (
+              <span
+                key={service.title}
+                style={{ opacity: `calc(0.35 + 0.65 * var(--service-${index}, 0))` }}
+              >
+                {String(index + 1).padStart(2, "0")}
+              </span>
+            ))}
+            <i />
           </div>
         </div>
-        <span className="immersive-service-foot immersive-mono">
-          EDIT WITH INTENTION / BUILD WITH PURPOSE
-        </span>
       </section>
 
       <section
@@ -875,7 +944,7 @@ export default function ImmersiveHome() {
             <span>05 / YOUR MOVE</span>
             <span>THE NEXT FRAME IS OPEN</span>
           </div>
-          <CreateWordmark className="closing-create" />
+          <CreateWordmark className="closing-create" guides />
           <div className="immersive-contact-copy">
             <span className="immersive-section-kicker immersive-mono">
               LET'S MAKE SOMETHING MATTER
@@ -897,87 +966,42 @@ export default function ImmersiveHome() {
               <p className="immersive-mono">OPEN FOR THE RIGHT PROJECT</p>
             )}
           </div>
-          <a href="#work" className="immersive-back-top immersive-mono">
-            BACK TO THE WORK <ArrowRight size={14} />
-          </a>
-        </div>
-      </section>
-
-      <section
-        className="immersive-index-section"
-        aria-labelledby="index-title"
-      >
-        <div className="immersive-index immersive-mono">
-          <span>INDEX / THE WORK</span>
-          <span>ALL CURRENT STUDIES</span>
-        </div>
-        <div className="immersive-index-heading">
-          <h2 id="index-title">
-            The work, <i>unfolded.</i>
-          </h2>
-          <div
-            className="immersive-filter"
-            role="group"
-            aria-label="Filter projects"
-          >
-            {(["all", "video", "code"] as const).map((item) => (
-              <button
-                key={item}
-                onClick={() => setFilter(item)}
-                aria-pressed={filter === item}
-              >
-                {item === "all"
-                  ? "All work"
-                  : item === "video"
-                    ? "Video"
-                    : "Code"}
-              </button>
-            ))}
-          </div>
-        </div>
-        <p
-          className="immersive-visually-hidden"
-          role="status"
-          aria-live="polite"
-        >
-          Showing {filteredProjects.length}{" "}
-          {filter === "all" ? "projects" : `${filter} projects`}.
-        </p>
-        <div className="immersive-index-grid">
-          {filteredProjects.map((project) => (
-            <article className="immersive-index-card" key={project.slug}>
-              <Link
-                to={`/work/${project.slug}`}
-                onClick={() =>
-                  rememberWork(
-                    projects.indexOf(project) /
-                      Math.max(1, workProjects.length - 1),
-                    "project-link",
-                  )
-                }
-                aria-label={`Open ${project.title} project`}
-              >
-                <ProjectVisual project={project} />
-                <div className="immersive-index-card-copy">
-                  <span className="immersive-mono">
-                    {project.number} /{" "}
-                    {project.category === "video" ? "VIDEO" : "CODE"}
-                  </span>
-                  <h3>{project.title}</h3>
-                  <p>{project.tagline}</p>
-                  <span className="immersive-index-tags">
-                    {project.tags.slice(0, 3).join(" · ")}
-                  </span>
+          <footer className="immersive-finale-footer">
+            <nav aria-label="Footer">
+              <div>
+                <a href="#top">Top</a>
+                <a href="#work">Works</a>
+                <a href="#about">About</a>
+              </div>
+              <div>
+                <a href="#services">Services</a>
+                <Link to="/works">All works</Link>
+                <a href="#contact">Contact</a>
+              </div>
+              {(profile.instagramUrl || profile.githubUrl) && (
+                <div className="immersive-finale-links immersive-mono">
+                  {profile.instagramUrl && (
+                    <a href={profile.instagramUrl} target="_blank" rel="noreferrer">
+                      INSTAGRAM
+                    </a>
+                  )}
+                  {profile.githubUrl && (
+                    <a href={profile.githubUrl} target="_blank" rel="noreferrer">
+                      GITHUB
+                    </a>
+                  )}
                 </div>
-                <ArrowRight />
-              </Link>
-            </article>
-          ))}
-        </div>
-        <div className="immersive-index-bottom">
-          <a href="#contact" className="immersive-text-link">
-            HAVE A PROJECT IN MIND? <ArrowRight size={14} />
-          </a>
+              )}
+            </nav>
+            <div className="immersive-finale-legal">
+              <a href="#top" className="immersive-mono">
+                BACK TO TOP <ArrowUpRight size={13} />
+              </a>
+              <strong>
+                © {new Date().getFullYear()} {profile.name} Studio
+              </strong>
+            </div>
+          </footer>
         </div>
       </section>
 

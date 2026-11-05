@@ -10,7 +10,7 @@
   opacity: clamp(0, calc((var(--finale-progress, 0) - 0.78) * 4.55), 1);
 }
 
-.create-wordmark path {
+.create-wordmark__glyph {
   --letter-progress: clamp(0, calc(var(--finale-progress, 0) * 2.4 - var(--letter-order) * 0.15), 1);
   stroke: currentColor;
   stroke-width: 1.1;
@@ -19,6 +19,24 @@
   fill: currentColor;
   fill-opacity: clamp(0, calc((var(--finale-progress, 0) - 0.78) * 4.55), 1);
   vector-effect: non-scaling-stroke;
+}
+
+/* Drafting guides sweep in first, then fade as the letters fill. */
+.create-wordmark__guides path {
+  --guide-progress: clamp(0, calc(var(--finale-progress, 0) * 3.2 - var(--guide-order) * 0.05), 1);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 0.6;
+  stroke-dasharray: 1;
+  stroke-dashoffset: calc(1 - var(--guide-progress));
+  vector-effect: non-scaling-stroke;
+  opacity: calc(0.34 * (1 - clamp(0, calc((var(--finale-progress, 0) - 0.72) * 3.6), 1)));
+}
+.create-wordmark__guides path[data-kind="c"],
+.create-wordmark__guides path[data-kind="d"] {
+  stroke-dasharray: 0.004 0.006;
+  stroke-dashoffset: 0;
+  opacity: calc(0.4 * var(--guide-progress) * (1 - clamp(0, calc((var(--finale-progress, 0) - 0.72) * 3.6), 1)));
 }
 
 [data-portfolio-motion="reduced"] .create-wordmark {

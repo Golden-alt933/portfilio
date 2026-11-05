@@ -91,6 +91,9 @@ export default function PortfolioShell({ children }: { children: ReactNode }) {
           <Link to="/#services">
             <ScrambleText text="Services" />
           </Link>
+          <Link to="/works">
+            <ScrambleText text="Index" />
+          </Link>
           <Link to="/#contact" className="contact-link">
             <SlotLabel text="Contact / Collaborate" />
           </Link>
@@ -113,6 +116,7 @@ export default function PortfolioShell({ children }: { children: ReactNode }) {
       <div id="main-content" tabIndex={-1} ref={page}>
         {children}
       </div>
+      {location.pathname !== "/" && (
       <footer className="site-footer shell-footer">
         <Link
           to="/"
@@ -139,6 +143,7 @@ export default function PortfolioShell({ children }: { children: ReactNode }) {
           © {new Date().getFullYear()} {profile.name} / FRAME & FUNCTION
         </span>
       </footer>
+      )}
     </>
   );
 }

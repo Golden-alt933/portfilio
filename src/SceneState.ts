@@ -26,6 +26,10 @@ export interface SceneState {
   portalReveal: number;
   workMediaProgress: number;
   finaleProgress: number;
+  /** 0→1→0 bell while the big WORKS title passes between hero and cards. */
+  worksTitle: number;
+  /** Local progress through the services chapters. */
+  servicesProgress: number;
 }
 
 export function initialSceneState(): SceneState {
@@ -48,5 +52,7 @@ export function initialSceneState(): SceneState {
     portalReveal: 0,
     workMediaProgress: 0,
     finaleProgress: 0,
+    worksTitle: 0,
+    servicesProgress: 0,
   };
 }

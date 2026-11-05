@@ -20,6 +20,10 @@ export interface Project {
   instagramUrl?: string;
   repositoryUrl?: string;
   demoUrl?: string;
+  /** Shown above the title on the home track, e.g. "2026". */
+  year?: string;
+  /** Short highlighted note next to the year (award, views, client). */
+  highlight?: string;
 }
 // Edit this file to add your identity, media and real projects.
 export const profile = {
@@ -30,6 +34,38 @@ export const profile = {
   showreelUrl: "",
   showreelPoster: "",
 };
+/** Short news lines for the hero. Newest first; replace with your own. */
+export const updates: { date: string; text: string }[] = [
+  { date: "2026.11", text: "Portfolio rebuilt around a live glass R and a curved scene." },
+  { date: "2026.11", text: "Sample projects shown. Real reels and builds are coming next." },
+  { date: "2026.10", text: "Taking on video editing and creative development work." },
+];
+
+/** Services chapters on the home page. `project` picks a visual by slug. */
+export const services = [
+  {
+    label: "01 / EDIT",
+    title: "Video editing",
+    body: "Editorial rhythm, motion, color and sound. Thoughtful cuts that give a story room to breathe and a reason to stay.",
+    points: ["Short-form & reels", "Story-led long edits", "Color & sound finishing"],
+    project: "motion-study",
+  },
+  {
+    label: "02 / BUILD",
+    title: "Creative development",
+    body: "Useful, expressive digital experiences. Clear interfaces and considered interactions, built to work as well as they look.",
+    points: ["Interactive websites", "WebGL & motion", "Prototypes & tools"],
+    project: "web-experience",
+  },
+  {
+    label: "03 / TOGETHER",
+    title: "Creative collaboration",
+    body: "From an early sketch to the final frame: shaping an idea with care, curiosity and a sharp eye for detail.",
+    points: ["Concept & direction", "Edit and build in one place", "Sketch to launch"],
+    project: "interactive-experiment",
+  },
+];
+
 export const projects: Project[] = [
   {
     slug: "motion-study",

@@ -34,7 +34,9 @@ float wave1=sin(uv.x*7.2+sin(uv.y*5.4+uTime*.24)*1.7-uTime*.42);
 float wave2=sin(uv.y*8.5-uv.x*3.6+uTime*.31+sin(uv.x*4.))*0.5+0.5;
 float waveBand=pow(max(0.,1.-abs(wave1)),5.);
 col+=vec3(.012,.16,.105)*waveBand*.52+vec3(.026,.055,.19)*pow(wave2,3.)*.28;
-vec2 curved=(uv-.5); curved.x*=1.+curved.y*curved.y*.8; curved.y+=curved.x*curved.x*.11; curved+=.5;
+// Viewer stands inside a cylinder: wall angle = atan(screen x), height squeezes
+// by cos(angle). Horizontal seams bow outward and columns compress at the edges.
+vec2 roomP=(uv-.5)*vec2(uAspect,1.)*1.7; float roomTheta=atan(roomP.x); vec2 curved=vec2(roomTheta*.6,roomP.y*cos(roomTheta)*.6)+.5;
 vec2 coarse=curved*vec2(5.,3.); float split=step(.5,hash(floor(coarse))); vec2 cell=curved*mix(vec2(5.,3.),vec2(10.,6.),split); vec2 id=floor(cell), f=fract(cell); float rand=hash(id); float edge=min(min(f.x,1.-f.x),min(f.y,1.-f.y)); float tile=step(.38,rand)*smoothstep(.005,.013,edge);
 float epoch=floor(uTime*.65+rand*3.); float phase=fract(uTime*.65+rand*3.);
 float shifted=step(.76,hash(id+epoch)); float pulse=(1.-smoothstep(.05,.24,phase))*shifted;
@@ -49,7 +51,14 @@ vec2 crossUv=abs(fract(curved*8.)-.5)*vec2(uAspect,1.);
 float thinX=1.-smoothstep(.004,.012,crossUv.x),thinY=1.-smoothstep(.004,.012,crossUv.y);
 float longX=1.-smoothstep(.028,.04,crossUv.x),longY=1.-smoothstep(.028,.04,crossUv.y);
 float cross=max(thinX*longY,longX*thinY);
-col+=vec3(.022,.032,.062)*(gridLine*.32+cross*.5); col=mix(col,vec3(.012,.023,.024)+vec3(.15,.23,.22)*(gridLine*.23+cross*.65),uServices);
+col+=vec3(.026,.036,.07)*(gridLine*.5+cross*.7);
+// Large wall panels: dark seams, a faint rim light and per-panel brightness.
+vec2 panelCell=curved*vec2(7.,4.); vec2 panelF=abs(fract(panelCell)-.5); float panelEdge=max(panelF.x,panelF.y);
+float seam=smoothstep(.478,.494,panelEdge); float rim=smoothstep(.44,.478,panelEdge)*(1.-seam);
+float panelTone=hash(floor(panelCell)+3.);
+float roomMask=(1.-uServices)*(1.-uLight);
+col*=1.-seam*.75*roomMask; col+=vec3(.02,.03,.06)*(rim*.6+panelTone*.35)*roomMask;
+float roomDepth=1.-smoothstep(.25,1.05,abs(roomTheta)); col*=mix(.62,1.,roomDepth*mix(1.,.0,uLight)+uLight); col=mix(col,vec3(.012,.023,.024)+vec3(.15,.23,.22)*(gridLine*.23+cross*.65),uServices);
 // Pigment is advected by the existing velocity solve. Two broad taps provide a
 // restrained optical glow without another full-resolution postprocessing pass.
 vec3 pigment=texture2D(uInk,clamp(uv,vec2(.001),vec2(.999))).rgb;
@@ -76,7 +85,7 @@ portal=mix(portal,sRGBTransferEOTF(vec4(portal,1.)).rgb,uPortalIsVideo);
 col=mix(col,portal*.18,clamp(uPortalReveal,0.,1.)*.35);
 gl_FragColor=vec4(col,1.); }`;
 
-export const refractionFragment = `precision highp float; varying vec2 vUv; varying vec3 vNormal,vWorld; uniform sampler2D uScene,uFluid,uInk; uniform samplerCube uEnv; uniform vec2 uResolution; uniform vec3 uIorRGB; uniform float uTime,uLight,uReveal,uServices,uContact,uRoughness,uNoiseScale,uRipple;
+export const refractionFragment = `precision highp float; varying vec2 vUv; varying vec3 vNormal,vWorld; uniform sampler2D uScene,uFluid,uInk; uniform samplerCube uEnv; uniform vec2 uResolution; uniform vec3 uIorRGB; uniform float uTime,uLight,uReveal,uServices,uContact,uRoughness,uNoiseScale,uRipple; uniform vec3 uTint;
 float surfaceNoise(vec3 p){ return sin(p.x*uNoiseScale+sin(p.y*uNoiseScale*.63)+uTime*.2)*sin(p.y*uNoiseScale*.81+p.z*4.); }
 void main(){ vec3 baseN=normalize(vNormal); vec3 N=normalize(baseN+vec3(surfaceNoise(vWorld)*.035, surfaceNoise(vWorld.yzx+3.)*.035,0.)); vec3 V=normalize(cameraPosition-vWorld); vec2 screen=gl_FragCoord.xy/uResolution; vec2 vel=texture2D(uFluid,screen).rg;
 vec2 radial=(screen-.5)*vec2(uResolution.x/uResolution.y,1.); float rr=length(radial); float revealFront=uReveal*1.25; float rippleRing=exp(-pow((rr-revealFront)*19.,2.)); vec2 rippleDir=radial/max(rr,.001); vec2 fullLens=rippleDir*sin((rr-revealFront)*82.-uTime*5.2)*rippleRing*uRipple*.038; screen=clamp(screen+fullLens,vec2(.002),vec2(.998));
@@ -88,7 +97,7 @@ vec3 dispersed=vec3(texture2D(uScene,clamp(screen+offsetR+vel*.004,vec2(.002),ve
 vec3 reflected=textureCube(uEnv,reflect(-V,N)).rgb; float bands=pow(max(0.,dot(N,normalize(vec3(.05,.56,.83)))),4.)*.95+pow(max(0.,dot(N,normalize(vec3(-.72,.2,.66)))),10.)*.7; float bevelLight=pow(max(0.,dot(N,normalize(vec3(.45,-.25,.86)))),22.)*.85;
 float grain=surfaceNoise(vWorld)*.018; float fresnel=pow(1.-max(dot(N,V),0.),5.); vec3 studio=max(reflected,vec3(.13,.19,.3)); vec3 ink=texture2D(uInk,clamp(screen+bend*.5,vec2(.002),vec2(.998))).rgb;
 vec3 color=refr*.98+studio*(.07+fresnel*.55)+vec3(.48,.63,.91)*bands*.43+vec3(.72,.85,1.)*bevelLight*.7+grain+ink*(.12+fresnel*.16);
-float contour=step(.58,fract((vUv.x+vUv.y)*42.)); vec3 light=vec3(.17,.78,.73); color=mix(color,light,.38*uLight*contour); color=mix(color,vec3(.84,.98,.95),uLight*.14); color*=1.+min(length(vel),1.)*.12; gl_FragColor=vec4(color,(1.-uLight*.99)*(1.-uServices*.82)*(1.-uContact)*smoothstep(0.,.45,uReveal)); }`;
+float contour=step(.58,fract((vUv.x+vUv.y)*42.)); vec3 light=vec3(.17,.78,.73); color=mix(color,light,.38*uLight*contour); color=mix(color,vec3(.84,.98,.95),uLight*.14); color*=1.+min(length(vel),1.)*.12; color*=mix(vec3(1.),uTint,1.-uLight); gl_FragColor=vec4(color,(1.-uLight*.99)*(1.-uServices*.82)*(1.-uContact)*smoothstep(0.,.45,uReveal)); }`;
 
 export const displayFragment = `precision highp float; varying vec2 vUv; uniform float uOpacity,uTime;
 void main(){
