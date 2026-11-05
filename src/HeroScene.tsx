@@ -1085,24 +1085,13 @@ export default function HeroScene({
       // Zoom into the R's side face instead of stretching the letter: the
       // camera swings onto the face's normal and closes in until the rainbow
       // screen fills the frame. The exit runs the same path backwards.
-      displayPlane.getWorldPosition(faceWorld);
-      faceNormal.set(-1, 0, 0).applyQuaternion(letter.quaternion).normalize();
       const zoom = THREE.MathUtils.smoothstep(serviceRotate, 0.04, 0.96);
-      const swing = THREE.MathUtils.smoothstep(zoom, 0, 0.45);
-      const closeIn = zoom * zoom * (3 - 2 * zoom);
-      const zoomDistance = cameraTargetZ * Math.pow(0.6 / cameraTargetZ, closeIn);
-      zoomTarget.copy(faceWorld).addScaledVector(faceNormal, zoomDistance);
-      baseTarget.set(desiredX, desiredY, cameraTargetZ).lerp(zoomTarget, swing);
-      if (zoom > 0.001) {
-        // Scroll-scrubbed: follow exactly so the face always lands centred.
-        camera.position.copy(baseTarget);
-      } else {
+      if (zoom <= 0.001) {
         camera.position.z += (cameraTargetZ - camera.position.z) * Math.min(1, dt * 2.5);
         camera.position.x += (desiredX - camera.position.x) * Math.min(1, dt * 3);
         camera.position.y += (desiredY - camera.position.y) * Math.min(1, dt * 3);
+        camera.lookAt(0, 0, 0);
       }
-      lookTarget.set(0, 0, 0).lerp(faceWorld, swing);
-      camera.lookAt(lookTarget);
       const letterScale =
         1.12 - workMix * 0.08 - servicesMix * 0.05 - transitionMix * 0.06;
       const finaleShift = THREE.MathUtils.smoothstep(finaleProgress, 0, 0.45);
@@ -1111,14 +1100,15 @@ export default function HeroScene({
       const userWeight = (1 - heroExit) * (1 - contactMix) * (reducedRef.current ? 0 : 1);
       userRot.x += (sceneTweaks.userRotX * userWeight - userRot.x) * Math.min(1, dt * 6);
       userRot.y += (sceneTweaks.userRotY * userWeight - userRot.y) * Math.min(1, dt * 6);
+      const steady = 1 - THREE.MathUtils.smoothstep(serviceRotate, 0, 0.35);
       letter.rotation.x =
-        motion.rotationX * (1 - contactMix) -
+        motion.rotationX * (1 - contactMix) * steady -
         (visionRotate * 0.1 + serviceRotate * 0.2) +
         userRot.x;
       letter.rotation.y =
-        motion.rotationY * (1 - palePhase) * (1 - contactMix) * (1 - visionRotate) +
+        motion.rotationY * (1 - palePhase) * (1 - contactMix) * (1 - visionRotate) * steady +
         (visionRotate * 0.15 + serviceRotate * 0.5) * Math.PI * 0.5 +
-        userRot.y;
+        userRot.y * steady;
       const q = letter.quaternion;
       sceneTweaks.quaternion = [q.x, q.y, q.z, q.w];
       holder!.dataset.rotationX = motion.rotationX.toFixed(3);
@@ -1135,6 +1125,21 @@ export default function HeroScene({
         palePhase * 0.2 - contactMix * finaleShift * closingViewHeight * camera.aspect * 0.178;
       letter.position.x +=
         (targetLetterX - letter.position.x) * Math.min(1, dt * 3);
+      if (zoom > 0.001) {
+        letter.updateMatrixWorld(true);
+        displayPlane.getWorldPosition(faceWorld);
+        faceNormal.set(-1, 0, 0).applyQuaternion(letter.quaternion).normalize();
+        const swing = THREE.MathUtils.smoothstep(zoom, 0, 0.45);
+        const closeIn = zoom * zoom * (3 - 2 * zoom);
+        const zoomDistance = cameraTargetZ * Math.pow(0.6 / cameraTargetZ, closeIn);
+        zoomTarget.copy(faceWorld).addScaledVector(faceNormal, zoomDistance);
+        // Pointer drift fades out quickly as the camera closes in.
+        const calm = (1 - swing) * (1 - swing);
+        baseTarget.set(desiredX * calm, desiredY * calm, cameraTargetZ).lerp(zoomTarget, swing);
+        camera.position.copy(baseTarget);
+        lookTarget.set(0, 0, 0).lerp(faceWorld, swing);
+        camera.lookAt(lookTarget);
+      }
       rMaterial.uniforms.uScene.value = backgroundTarget.texture;
       rMaterial.uniforms.uResolution.value.set(
         width * renderer.getPixelRatio(),
