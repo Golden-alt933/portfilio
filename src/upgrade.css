@@ -251,7 +251,8 @@ body[data-intro-stage="revealing"] .gui-panel {
 /* ---------- Services ---------- */
 .immersive-services {
   position: relative;
-  height: calc(100svh * (var(--service-count, 3) * 1.15 + 1));
+  /* About 2.6 screens per service: each panel holds centred for a while. */
+  height: calc(100svh * (var(--service-count, 3) * 2.6 + 1));
   padding: 0;
   overflow: visible;
 }
@@ -570,25 +571,42 @@ html:has(.works-index-page) {
   mix-blend-mode: difference;
 }
 
-/* Last service: a frame with corner plus marks closes in from the corners. */
+/* Last service: a centred frame closes in from beyond the screen edges.
+   Equal top/bottom insets keep it centred; the section label sits just above
+   it and the plus marks (the site's cross motif) are white. */
 .service-frame {
   --frame-in: var(--service-frame, 0);
+  --frame-y: max(132px, 15svh);
+  --frame-x: max(5vw, 40px);
   position: absolute;
   z-index: 5;
-  /* Closes from beyond the screen edges to just below the logo and the
-     "04 / SERVICES" line. */
-  top: calc(162px - (1 - var(--frame-in)) * 30vh);
-  bottom: calc(6% - (1 - var(--frame-in)) * 30vh);
-  left: calc(5vw - (1 - var(--frame-in)) * 25vw);
-  right: calc(5vw - (1 - var(--frame-in)) * 25vw);
-  border: 1px solid #ffffff8c;
+  top: calc(var(--frame-y) - (1 - var(--frame-in)) * 30vh);
+  bottom: calc(var(--frame-y) - (1 - var(--frame-in)) * 30vh);
+  left: calc(var(--frame-x) - (1 - var(--frame-in)) * 25vw);
+  right: calc(var(--frame-x) - (1 - var(--frame-in)) * 25vw);
+  border: 1px solid #ffffff59;
   opacity: var(--frame-in);
   pointer-events: none;
 }
+/* Field of small white plus marks across the framed area: crossing hairlines
+   tiled per cell, masked down to a 12px cross at each cell centre. */
+.service-frame::after {
+  --cell: clamp(64px, 6.4vw, 104px);
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, transparent calc(50% - 0.5px), #fff calc(50% - 0.5px) calc(50% + 0.5px), transparent calc(50% + 0.5px)) center / var(--cell) var(--cell),
+    linear-gradient(0deg, transparent calc(50% - 0.5px), #fff calc(50% - 0.5px) calc(50% + 0.5px), transparent calc(50% + 0.5px)) center / var(--cell) var(--cell);
+  -webkit-mask: radial-gradient(circle, #000 0 6px, transparent 6.5px) center / var(--cell) var(--cell);
+  mask: radial-gradient(circle, #000 0 6px, transparent 6.5px) center / var(--cell) var(--cell);
+  opacity: 0.5;
+}
 .service-frame i {
   position: absolute;
-  width: 34px;
-  height: 34px;
+  z-index: 1;
+  width: 30px;
+  height: 30px;
 }
 .service-frame i::before,
 .service-frame i::after {
@@ -608,10 +626,10 @@ html:has(.works-index-page) {
   height: 1px;
   width: 100%;
 }
-.service-frame i:nth-child(1) { left: -17px; top: -17px; }
-.service-frame i:nth-child(2) { right: -17px; top: -17px; }
-.service-frame i:nth-child(3) { left: -17px; bottom: -17px; }
-.service-frame i:nth-child(4) { right: -17px; bottom: -17px; }
+.service-frame i:nth-child(1) { left: -15px; top: -15px; }
+.service-frame i:nth-child(2) { right: -15px; top: -15px; }
+.service-frame i:nth-child(3) { left: -15px; bottom: -15px; }
+.service-frame i:nth-child(4) { right: -15px; bottom: -15px; }
 
 /* ---------- Auto-contrast ----------
    Fixed chrome is white and blends with "difference": over dark areas it
@@ -636,7 +654,7 @@ html:has(.works-index-page) {
   opacity: calc(var(--scene-services-mix, 1) * (1 - clamp(0, calc((var(--service-exit, 0) - 0.33) * 6), 1)));
 }
 .immersive-exit-spacer {
-  height: 250svh;
+  height: 170svh;
 }
 .immersive-home.is-static .immersive-exit-spacer {
   height: 0;
@@ -735,8 +753,11 @@ html:has(.works-index-page) {
   mix-blend-mode: difference;
   opacity: calc(var(--service-end, 0) * (1 - clamp(0, calc((var(--service-exit, 0) - 0.3) * 12), 1)));
 }
+/* Label sits just above the centred frame, clear of its top edge. */
 .service-exit-overlay .immersive-index {
-  top: 106px;
+  top: calc(max(132px, 15svh) - 28px);
+  left: max(5vw, 40px);
+  right: max(5vw, 40px);
   color: #fff;
 }
 .immersive-services-stage > .immersive-index {
@@ -744,4 +765,36 @@ html:has(.works-index-page) {
 }
 .immersive-home.is-static .service-exit-overlay {
   display: none;
+}
+
+/* ---------- Mission / vision statements ----------
+   Each line's black marker wipes in left to right with the white text on it,
+   rising 8px. As the next chapter arrives the whole statement blurs out
+   (up to 10px) and fades at twice the rate. */
+.immersive-statement-copy h3 > span {
+  --line-p: clamp(0, calc((var(--chapter-progress, 1) - 0.5 - var(--line, 0) * 0.12) / 0.3), 1);
+  clip-path: inset(-2px calc((1 - var(--line-p)) * 100%) -2px 0);
+  transform: translateY(calc((1 - var(--line-p)) * 8px));
+}
+.immersive-statement-copy h3 > span:nth-child(2) {
+  --line: 1;
+}
+.immersive-mission .immersive-statement,
+.immersive-vision .immersive-statement {
+  filter: blur(calc(var(--chapter-out, 0) * 10px));
+  opacity: max(0, calc(1 - var(--chapter-out, 0) * 2));
+}
+.immersive-vision .immersive-statement h2 {
+  filter: none;
+  opacity: 1;
+}
+.immersive-home.is-static .immersive-statement-copy h3 > span {
+  clip-path: none;
+  transform: none;
+}
+@media (max-width: 700px) {
+  .immersive-mission .immersive-statement,
+  .immersive-vision .immersive-statement {
+    filter: none;
+  }
 }

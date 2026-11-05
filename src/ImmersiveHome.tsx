@@ -53,6 +53,8 @@ const chapters: SceneChapter[] = [
 ];
 const workProjects = projects;
 const SCENE_REVEAL_DURATION_MS = 3000;
+/** Services progress at which the last screen has finished wiping to full frame. */
+const SERVICE_FULL_AT = 0.985;
 
 export default function ImmersiveHome() {
   const {
@@ -301,10 +303,20 @@ export default function ImmersiveHome() {
       const serviceListIn = clamp(
         (scroll - (metrics[4].start - vh * 0.35)) / (vh * 0.75),
       );
-      // Exit room between services and the finale (about 2.5 screens).
+      // The last service is full frame at progress SERVICE_FULL_AT. The frame
+      // closes straight after that, then the screen shrinks back into the R.
+      const fullFrameAt =
+        metrics[4].start +
+        SERVICE_FULL_AT * Math.max(1, metrics[4].end - metrics[4].start - vh);
+      const serviceFrame = smooth((scroll - fullFrameAt) / (vh * 0.55));
+      const exitStart = fullFrameAt + vh * 0.5;
       const serviceExit = clamp(
-        (scroll - metrics[4].end) / Math.max(1, metrics[5].start - metrics[4].end),
+        (scroll - exitStart) / Math.max(1, metrics[5].start - exitStart),
       );
+      // Mission / vision statements blur out as the next chapter takes over
+      // (vision's before the zoom into the R).
+      const missionOut = smooth((scroll - metrics[2].start - vh * 0.35) / (vh * 0.45));
+      const visionOut = smooth((scroll - metrics[3].start - vh * 0.28) / (vh * 0.38));
       const finaleProgress = smooth(
         (scroll - metrics[5].start) /
           Math.max(1, metrics[5].end - metrics[5].start - vh),
@@ -396,6 +408,8 @@ export default function ImmersiveHome() {
         "--portfolio-hero-scroll-reveal",
         String(introStage(0.95, 1)),
       );
+      missionRef.current!.style.setProperty("--chapter-out", reducedMotion ? "0" : missionOut.toFixed(3));
+      visionRef.current!.style.setProperty("--chapter-out", reducedMotion ? "0" : visionOut.toFixed(3));
       sections.forEach((section, i) =>
         section!.style.setProperty(
           "--chapter-progress",
@@ -449,7 +463,7 @@ export default function ImmersiveHome() {
         // Copy holds fully across most of each chapter; short crossfades.
         const visibility = reducedMotion
           ? 1
-          : smooth(1 - (held - 0.4) / 0.1);
+          : smooth(1 - (held - 0.3) / 0.15);
         story.style.setProperty(`--service-${i}`, visibility.toFixed(3));
         story.style.setProperty(
           `--service-${i}-offset`,
@@ -466,11 +480,11 @@ export default function ImmersiveHome() {
       // video is fully on screen.
       story.style.setProperty(
         "--service-frame",
-        (reducedMotion ? 1 : smooth(serviceExit / 0.3)).toFixed(3),
+        (reducedMotion ? 1 : serviceFrame).toFixed(3),
       );
       story.style.setProperty(
         "--service-end",
-        (reducedMotion ? 0 : smooth((servicesProgress - 0.86) / 0.08)).toFixed(3),
+        (reducedMotion ? 0 : smooth((servicesProgress - 0.9) / 0.07)).toFixed(3),
       );
       document.body.dataset.sceneChapter = chapter;
       document.body.style.setProperty("--scene-light-mix", String(lightMix));

@@ -214,8 +214,6 @@ button:focus-visible .motion-slot__line--inverse,
   font: 400 12px/1.4 "IBM Plex Mono", "Space Mono", monospace;
   letter-spacing: 0.02em;
   white-space: nowrap;
-  opacity: 0;
-  animation: intro-tagline-in 0.6s ease 0.5s forwards;
 }
 @keyframes intro-tagline-in {
   to { opacity: 1; }

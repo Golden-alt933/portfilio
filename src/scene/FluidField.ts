@@ -30,6 +30,9 @@ export class FluidField {
   private projectMaterial: THREE.ShaderMaterial;
   private dyeMaterial: THREE.ShaderMaterial;
   private pointer = new THREE.Vector2(0.5, 0.5);
+  /** Pointer position at the previous solver step; splats cover the segment between the two. */
+  private pointerPrev = new THREE.Vector2(0.5, 0.5);
+  private hasPointer = false;
   private impulse = new THREE.Vector2();
   private pointerColor = new THREE.Color(0x3b7bff);
   private pointerDeposit = 0;
@@ -96,19 +99,25 @@ export class FluidField {
       uniforms: {
         uPrev: { value: this.velocity.texture },
         uPointer: { value: this.pointer },
+        uPointerPrev: { value: this.pointerPrev },
         uImpulse: { value: this.impulse },
         uTexel: { value: this.resolution },
         uEnabled: { value: enabled ? 1 : 0 },
         uDt: { value: 1 / 60 },
       },
       vertexShader: vertex,
-      fragmentShader: `precision highp float; varying vec2 vUv; uniform sampler2D uPrev; uniform vec2 uPointer,uImpulse,uTexel; uniform float uEnabled,uDt;
+      fragmentShader: `precision highp float; varying vec2 vUv; uniform sampler2D uPrev; uniform vec2 uPointer,uPointerPrev,uImpulse,uTexel; uniform float uEnabled,uDt;
       void main(){ vec2 v=texture2D(uPrev,vUv).rg; vec2 back=vUv-v*uTexel*(uDt*60.0); v=texture2D(uPrev,back).rg*pow(.99,uDt*60.0);
       // Pointer splat after the reference: a tiny radius that grows with
       // pointer speed (1%..6% of the frame) and a force of 30x, clamped.
-      float aspect=uTexel.y/uTexel.x; vec2 d=vUv-uPointer; if(aspect<1.0){ d.x*=aspect; } else { d.y/=aspect; }
+      // Distance to the segment travelled since the last step, not to a single
+      // point, so fast strokes leave one continuous ribbon instead of dots.
+      float aspect=uTexel.y/uTexel.x; vec2 asp=aspect<1.0?vec2(aspect,1.0):vec2(1.0,1.0/aspect);
+      vec2 a=(vUv-uPointerPrev)*asp, b=(uPointer-uPointerPrev)*asp;
+      float h=clamp(dot(a,b)/max(dot(b,b),1e-6),0.0,1.0); vec2 d=a-b*h;
       float pv=smoothstep(0.01,1.0,length(uImpulse));
-      float w=smoothstep(0.01+0.1*min(0.5,pv),0.0,length(d));
+      float w=smoothstep(0.018+0.08*min(0.5,pv),0.0,length(d));
+      w=w*w*(3.0-2.0*w);
       vec2 power=uImpulse*30.0; if(aspect<1.0){ power.x/=aspect; } else { power.y*=aspect; }
       power=clamp(power,vec2(-2.0),vec2(2.0));
       v+=w*power;
@@ -215,6 +224,11 @@ export class FluidField {
   }
 
   setPointer(x: number, y: number, dx: number, dy: number) {
+    // First sample, or a jump (pointer re-entering the window): start a new stroke.
+    if (!this.hasPointer || Math.hypot(x - this.pointer.x, y - this.pointer.y) > 0.25) {
+      this.hasPointer = true;
+      this.pointerPrev.set(x, y);
+    }
     this.pointer.set(
       THREE.MathUtils.clamp(x, 0, 1),
       THREE.MathUtils.clamp(y, 0, 1),
@@ -265,6 +279,7 @@ export class FluidField {
     if (this.splatQueue.length > 32) this.splatQueue.shift();
     if (this.enabled) {
       this.pointer.set(x, y);
+      this.pointerPrev.set(x, y);
       this.impulse
         .add(new THREE.Vector2(dx, dy).multiplyScalar(0.18 * amount))
         .clampLength(0, 1);
@@ -314,6 +329,7 @@ export class FluidField {
         this.velocityMaterial.uniforms.uPrev.value = this.velocity.texture;
         this.pass(this.velocityMaterial, this.velocityBack);
         [this.velocity, this.velocityBack] = [this.velocityBack, this.velocity];
+        this.pointerPrev.copy(this.pointer);
         this.impulse.multiplyScalar(0.5);
         this.divergenceMaterial.uniforms.uVelocity.value =
           this.velocity.texture;

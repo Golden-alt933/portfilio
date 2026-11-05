@@ -169,6 +169,8 @@ function makeCanvasTexture(canvas: HTMLCanvasElement) {
   return texture;
 }
 
+const CREATE_SCALE = 0.8;
+
 export default function HeroScene({
   state,
   reducedMotion,
@@ -305,6 +307,7 @@ export default function HeroScene({
     const bgMaterial = new THREE.ShaderMaterial({
       uniforms: {
         uTime: { value: 0 },
+        uFlatten: { value: 0 },
         uFluid: { value: fluid.velocity.texture },
         uInk: { value: fluid.dye.texture },
         uAspect: { value: window.innerWidth / window.innerHeight },
@@ -406,6 +409,11 @@ export default function HeroScene({
       new THREE.Vector3(),
     );
     rGeometry.center();
+    const rHeight = rGeometry.boundingBox
+      ? rGeometry.boundingBox.max.y - rGeometry.boundingBox.min.y
+      : 4.2;
+    let slotElement: SVGPathElement | null = null;
+    const slotRay = new THREE.Vector3();
     const rMaterial = new THREE.ShaderMaterial({
       uniforms: {
         uScene: { value: backgroundTarget.texture },
@@ -430,9 +438,12 @@ export default function HeroScene({
       },
       vertexShader: refractionVertex,
       fragmentShader: refractionFragment,
-      side: THREE.DoubleSide,
+      // Front faces only, with depth: drawing the back faces without depth
+      // let the far side of the extrusion paint over the front as an offset
+      // ghost copy of the R.
+      side: THREE.FrontSide,
       transparent: true,
-      depthWrite: false,
+      depthWrite: true,
     });
     const letter = new THREE.Mesh(rGeometry, rMaterial);
     scene.add(letter);
@@ -812,7 +823,9 @@ export default function HeroScene({
       fluid.setEnabled(width > 700);
       // The background uses a square orthographic camera. Compensate its type
       // plane for the viewport so glyphs keep their natural aspect ratio.
-      typePlane.scale.y = (camera.aspect * ((1.94 * 520) / 2048)) / 0.53;
+      // CREATE sits further back behind the R: smaller than full width.
+      typePlane.scale.x = CREATE_SCALE;
+      typePlane.scale.y = ((camera.aspect * ((1.94 * 520) / 2048)) / 0.53) * CREATE_SCALE;
       bgMesh.scale.set(1, 1, 1);
       const mobile = width < 700;
       letter.scale.setScalar(mobile ? 1.2 : 1.4);
@@ -930,6 +943,8 @@ export default function HeroScene({
       const cameraApproach = Math.max(0, cameraDive - portalTravel * 1.8);
       bgMaterial.uniforms.uTime.value = now * 0.001;
       bgMaterial.uniforms.uLight.value = light;
+      // The curved wall unrolls flat together with the R's extrusion.
+      bgMaterial.uniforms.uFlatten.value = THREE.MathUtils.smoothstep(palePhase, 0.05, 0.85);
       bgMaterial.uniforms.uContact.value = contactMix;
       bgMaterial.uniforms.uServices.value = servicesMix;
       bgMaterial.uniforms.uReveal.value = reveal;
@@ -940,7 +955,8 @@ export default function HeroScene({
         (1 - Math.min(1, (stateRef.current.current.worksTitle ?? 0) * 2.2)) *
         (1 - contactMix) *
         (1 - lightMix) *
-        (1 - servicesMix);
+        (1 - servicesMix) *
+        0.88;
       typeFollow.x += (pointer.ndcX * 0.035 - typeFollow.x) * Math.min(1, dt * 3);
       typeFollow.y += (pointer.ndcY * 0.025 - typeFollow.y) * Math.min(1, dt * 3);
       typePlane.position.x = reducedRef.current ? 0 : typeFollow.x;
@@ -1100,7 +1116,37 @@ export default function HeroScene({
       const letterScale =
         1.12 - workMix * 0.08 - servicesMix * 0.05 - transitionMix * 0.06;
       const finaleShift = THREE.MathUtils.smoothstep(finaleProgress, 0, 0.45);
-      letter.scale.setScalar((mobile ? 1.2 : 1.4) * (letterScale / 1.12) * (1 - contactMix * 0.42) * (1 - contactMix * finaleShift * (mobile ? 0.73 : 0.30)));
+      // Finale: measure the R slot of the closing CREATE and dock the letter
+      // exactly onto it (position and height), instead of guessed offsets.
+      let slot: { x: number; y: number; scale: number } | null = null;
+      if (contactMix > 0.001) {
+        slotElement ??= document.querySelector<SVGPathElement>(
+          '.closing-create path[data-letter="R"]',
+        );
+        const rect = slotElement?.isConnected ? slotElement.getBoundingClientRect() : null;
+        if (!slotElement?.isConnected) slotElement = null;
+        if (rect && rect.height > 4) {
+          // Cast the slot centre through the live camera onto the letter's
+          // z = 0 plane, so the dock holds even while the camera settles.
+          const hostRect = holder!.getBoundingClientRect();
+          const ndcX = ((rect.left + rect.width / 2 - hostRect.left) / width) * 2 - 1;
+          const ndcY = 1 - ((rect.top + rect.height / 2 - hostRect.top) / height) * 2;
+          camera.updateMatrixWorld();
+          slotRay.set(ndcX, ndcY, 0.5).unproject(camera).sub(camera.position);
+          const t = -camera.position.z / (slotRay.z || -1e-6);
+          const distance = Math.max(0.1, camera.position.z);
+          const halfH = Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2) * distance;
+          slot = {
+            x: camera.position.x + slotRay.x * t,
+            y: camera.position.y + slotRay.y * t,
+            scale: ((rect.height / height) * 2 * halfH) / rHeight,
+          };
+        }
+      }
+      const baseScale = (mobile ? 1.2 : 1.4) * (letterScale / 1.12) * (1 - contactMix * 0.42);
+      letter.scale.setScalar(
+        slot ? THREE.MathUtils.lerp(baseScale, slot.scale, contactMix * finaleShift) : baseScale,
+      );
       // Gizmo offsets ease in and fade out once the hero is left behind.
       const userWeight = (1 - heroExit) * (1 - contactMix) * (reducedRef.current ? 0 : 1);
       userRot.x += (sceneTweaks.userRotX * userWeight - userRot.x) * Math.min(1, dt * 6);
@@ -1119,17 +1165,23 @@ export default function HeroScene({
       holder!.dataset.rotationX = motion.rotationX.toFixed(3);
       holder!.dataset.rotationY = motion.rotationY.toFixed(3);
       holder!.dataset.reveal = reveal.toFixed(3);
-      const targetLetterY =
-        (mobile ? 0.55 : 0) - workMix * 0.12 - palePhase * 0.24 + contactMix * (1.3 + finaleShift * 0.25);
-      letter.position.y +=
-        (targetLetterY - letter.position.y) * Math.min(1, dt * 2);
-      const closingViewHeight = 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2) * camera.position.z;
-      const targetLetterX =
+      let targetLetterY =
+        (mobile ? 0.55 : 0) - workMix * 0.12 - palePhase * 0.24 + contactMix * 1.3;
+      let targetLetterX =
         (mobile ? -0.03 : -0.12) -
         (!mobile ? servicesMix * (1 - contactMix) * (1 - exit) * 1.98 : 0) +
-        palePhase * 0.2 - contactMix * finaleShift * closingViewHeight * camera.aspect * 0.178;
+        palePhase * 0.2;
+      if (slot) {
+        const dock = contactMix * finaleShift;
+        targetLetterX = THREE.MathUtils.lerp(targetLetterX, slot.x, dock);
+        targetLetterY = THREE.MathUtils.lerp(targetLetterY, slot.y, dock);
+      }
+      // Track the docking target tightly so the R stays locked to its slot.
+      const follow = slot && finaleShift > 0.01 ? 8 : 0;
+      letter.position.y +=
+        (targetLetterY - letter.position.y) * Math.min(1, dt * (follow || 2));
       letter.position.x +=
-        (targetLetterX - letter.position.x) * Math.min(1, dt * 3);
+        (targetLetterX - letter.position.x) * Math.min(1, dt * (follow || 3));
       if (zoom > 0.001) {
         letter.updateMatrixWorld(true);
         displayPlane.getWorldPosition(faceWorld);
@@ -1194,8 +1246,14 @@ export default function HeroScene({
         let raw = 0.5 + servicesProgress * serviceList.length;
         raw -= (1 - serviceTurn.list) * 0.4;
         raw = THREE.MathUtils.clamp(raw, -0.5, serviceList.length);
+        // Each panel holds in the centre for the middle of its scroll range
+        // and only travels near the boundaries.
         const nearest = Math.round(raw);
-        const snapped = raw < 1 ? raw : nearest - (nearest - raw) * 0.4;
+        const d = raw - nearest;
+        const snapped =
+          raw < 1
+            ? raw
+            : nearest + Math.sign(d) * 0.5 * THREE.MathUtils.smoothstep(Math.abs(d), 0.22, 0.5);
         serviceTurn.scroll += (snapped - serviceTurn.scroll) * ease(0.5 * 0.2);
       }
       const serviceNeeded =
@@ -1225,7 +1283,7 @@ export default function HeroScene({
           time: now * 0.001,
           serviceIn: Math.max(serviceTurn.list, serviceScreenIn * 0.35),
           scroll: serviceTurn.scroll,
-          full: THREE.MathUtils.smoothstep(servicesProgress, 0.84, 0.98),
+          full: THREE.MathUtils.smoothstep(servicesProgress, 0.9, 0.985),
           opacity: 1,
           media,
         });

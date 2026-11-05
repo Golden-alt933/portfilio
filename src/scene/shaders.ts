@@ -4,7 +4,7 @@ export const fullscreenVertex = `varying vec2 vUv; void main(){vUv=uv; gl_Positi
 export const refractionVertex = `uniform float uDepthScale,uRipple,uTime,uMorph,uHalfDepth,uHalfHeight; varying vec2 vUv; varying vec3 vNormal; varying vec3 vWorld; void main(){ vUv=uv; vec3 p=position; float radius=length(p.xy); p.z*=uDepthScale; p.z+=sin(radius*5.-uTime*2.)*uRipple*.018; vec4 world=modelMatrix*vec4(p,1.0); vWorld=world.xyz; vNormal=normalize(mat3(modelMatrix)*normal); vec4 o=projectionMatrix*viewMatrix*world; o.xyz/=o.w; o.w=1.; vec4 sc=vec4(p.z/max(uHalfDepth*uDepthScale,.001)*1.03,p.y/uHalfHeight*1.03,o.z,1.); gl_Position=mix(o,sc,uMorph); }`;
 
 export const backgroundFragment = `precision highp float; varying vec2 vUv;
-uniform float uTime,uLight,uContact,uReveal,uServices,uAspect,uPortalReveal,uPortalIsVideo,uPortalAspect,uWorks,uWorksX,uWorksY,uWorkMedia,uScroll;
+uniform float uTime,uFlatten,uLight,uContact,uReveal,uServices,uAspect,uPortalReveal,uPortalIsVideo,uPortalAspect,uWorks,uWorksX,uWorksY,uWorkMedia,uScroll;
 uniform sampler2D uFluid,uInk,uPortalMedia,uWorksMap;
 float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
 float noise(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.-2.*f); return mix(mix(hash(i),hash(i+vec2(1.,0.)),f.x),mix(hash(i+vec2(0.,1.)),hash(i+vec2(1.,1.)),f.x),f.y); }
@@ -41,7 +41,8 @@ vec2 v=texture2D(uFluid,vUv).rg;
 vec2 uv=vUv;
 // Curved wall: the viewer stands inside a cylinder of screens.
 vec2 roomP=(uv-.5)*vec2(uAspect,1.)*1.55; float th=atan(roomP.x);
-vec2 wall=vec2(th*.62,roomP.y*cos(th)*.62)+.5;
+// As the R flattens into its outline, the cylinder unrolls into a flat wall.
+vec2 wall=mix(vec2(th,roomP.y*cos(th)),roomP,uFlatten)*.62+.5;
 wall.y-=uScroll;
 // Recursive quadtree panels. The panelLayout reshuffles every four seconds and
 // panels shrink away around each swap.
@@ -131,43 +132,44 @@ gl_FragColor=vec4(col,1.); }`;
 export const refractionFragment = `precision highp float; varying vec2 vUv; varying vec3 vNormal,vWorld;
 uniform sampler2D uScene,uFluid,uInk; uniform samplerCube uEnv; uniform vec2 uResolution; uniform vec3 uIorRGB;
 uniform float uTime,uLight,uReveal,uServices,uContact,uRoughness,uNoiseScale,uRipple; uniform vec3 uTint;
-float surfaceNoise(vec3 p){ return sin(p.x*uNoiseScale+sin(p.y*uNoiseScale*.63)+uTime*.2)*sin(p.y*uNoiseScale*.81+p.z*4.); }
-float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
 vec3 sceneAt(vec2 uv){ return texture2D(uScene,clamp(uv,vec2(.002),vec2(.998))).rgb; }
-// Glass after the reference's logo shader: the already-rendered scene is
-// refracted through the letter with 8 jittered samples whose R/G/B slides
-// differ (x1/x2/x4), roughness varies with two noise samples, then a GGX
-// highlight, Schlick Fresnel (f0 .1) and an environment reflection are added.
+// Clear, dense glass: a stable (un-jittered) refraction of the scene behind,
+// split per channel for dispersion that grows toward the bevels, a thin
+// Fresnel reflection of the studio environment and tight specular glints.
+// No frosting noise and no overall boost, so the letter reads as solid glass
+// rather than a glowing shape.
 void main(){
-vec3 N=normalize(vNormal); vec3 V=normalize(cameraPosition-vWorld);
+vec3 N=normalize(vNormal); if(!gl_FrontFacing) N=-N;
+vec3 V=normalize(cameraPosition-vWorld);
 vec2 screen=gl_FragCoord.xy/uResolution; vec2 vel=texture2D(uFluid,screen).rg;
-float n1=surfaceNoise(vWorld), n2=surfaceNoise(vWorld.yzx*1.7+3.);
-float rough=clamp(uRoughness*(.7+.45*n1+.35*n2),0.,1.);
 vec3 Nv=normalize((viewMatrix*vec4(N,0.)).xyz);
-float ior=(uIorRGB.r-uIorRGB.b);
-vec2 shift=-Nv.xy*.15;
-vec2 dir=normalize(shift+vec2(.0001));
-vec2 blurDir=vec2(n1,n2)*rough*.3*.05;
-vec3 acc=vec3(0.);
-for(int i=0;i<8;i++){
-  float fi=float(i);
-  float rnd=hash(gl_FragCoord.xy*.37+fi*7.13+fract(uTime)*13.);
-  float slide=(.005+rnd*.007)*(.4+ior*8.);
-  vec2 o=screen+shift+blurDir*(fi/7.-.5)*2.+vel*.004;
-  acc+=vec3(sceneAt(o+dir*slide).r,sceneAt(o+dir*slide*2.).g,sceneAt(o+dir*slide*4.).b);
+float ndv=clamp(dot(N,V),0.,1.);
+float edge=1.-ndv;
+vec2 dir=-Nv.xy;
+float bend=.035+.12*edge*edge;
+float disp=(uIorRGB.r-uIorRGB.b)*(2.5+edge*10.);
+float bR=bend*(1.-disp), bG=bend, bB=bend*(1.+disp);
+float rough=clamp(uRoughness,0.,1.)*.012;
+vec3 refr=vec3(0.);
+for(int i=0;i<5;i++){
+  float a=float(i)*1.2566; vec2 o=(i==0?vec2(0.):vec2(cos(a),sin(a))*rough)+vel*.003;
+  refr+=vec3(sceneAt(screen+dir*bR+o).r,sceneAt(screen+dir*bG+o).g,sceneAt(screen+dir*bB+o).b);
 }
-vec3 refr=acc/8.*.9*vec3(.94,.98,1.05);
-vec3 L=normalize(vec3(-1.,.8,1.)); vec3 H=normalize(L+V);
-float a=.003+rough*.4; float a2=a*a; float ndh=max(dot(N,H),0.);
-float dd=ndh*ndh*(a2-1.)+1.; float spec=a2/(3.14159*dd*dd);
-vec3 L2=normalize(vec3(.9,-.3,.6)); vec3 H2=normalize(L2+V); float ndh2=max(dot(N,H2),0.); float dd2=ndh2*ndh2*(a2-1.)+1.; float spec2=a2/(3.14159*dd2*dd2);
-float F=.1+.9*pow(1.-max(dot(N,V),0.),5.);
+refr/=5.;
+// Body absorption: slightly darker and cooler through the thick middle.
+refr*=mix(vec3(.80,.86,.92),vec3(1.),edge*.6);
+float F=.04+.96*pow(edge,5.);
 vec3 env=textureCube(uEnv,reflect(-V,N)).rgb;
-float ndv=max(dot(N,V),0.);
-vec3 color=mix(refr,env*1.25,F)+vec3(1.)*min(spec,12.)*.1*(.4+F)+vec3(.75,.85,1.)*min(spec2,12.)*.04+vec3(.92,.96,1.)*pow(1.-ndv,3.)*.28;
-color*=1.2*uTint;
+vec3 L=normalize(vec3(-1.,.8,1.)); vec3 H=normalize(L+V);
+float a2=.0009; float ndh=max(dot(N,H),0.); float dd=ndh*ndh*(a2-1.)+1.; float spec=a2/(3.14159*dd*dd);
+vec3 L2=normalize(vec3(.9,-.3,.6)); vec3 H2=normalize(L2+V); float ndh2=max(dot(N,H2),0.); float dd2=ndh2*ndh2*(a2-1.)+1.; float spec2=a2/(3.14159*dd2*dd2);
+vec3 color=mix(refr,env*.85,F);
+color+=vec3(1.)*min(spec,40.)*.012+vec3(.8,.9,1.)*min(spec2,40.)*.006;
+// Thin bright line along the bevel turn instead of a broad rim glow.
+color+=vec3(.9,.95,1.)*smoothstep(.62,.9,edge)*(1.-smoothstep(.9,1.,edge))*.12;
+color*=uTint;
 float contour=step(.58,fract((vUv.x+vUv.y)*42.)); vec3 light=vec3(.17,.78,.73); color=mix(color,light,.38*uLight*contour); color=mix(color,vec3(.84,.98,.95),uLight*.14);
-color*=1.+min(length(vel),1.)*.12;
+color*=1.+min(length(vel),1.)*.06;
 gl_FragColor=vec4(color,(1.-uLight*.99)*(1.-uServices*.82)*(1.-uContact)); }`;
 
 export const displayFragment = `precision highp float; varying vec2 vUv; uniform float uOpacity,uTime;
@@ -196,16 +198,17 @@ void main(){
 vec2 uv=vUv; vec2 cuv=vUv-.5;
 // Pointer fluid only warps and brightens the finished frame (no colour).
 vec2 fl=texture2D(uFluid,uv).xy; float fll=length(fl);
-vec3 mainCol=sceneAt(uv+fl*.014)*(1.+fll*.8)+vec3(.03,.04,.055)*min(fll,1.6);
+vec3 mainCol=sceneAt(uv+fl*.014)*(1.+fll*.6)+vec3(.82,.86,.9)*smoothstep(.02,1.2,fll)*.11;
 vec3 serviceCol=texture2D(uServiceTex,clamp(uv+fl*.01,vec2(.001),vec2(.999))).rgb*(1.+fll*.8)*smoothstep(1.5,.3,length(cuv));
 vec3 col=mix(mainCol,serviceCol,step(.9999,uVisibleService));
-// Single-pass bloom: highlights above .9 glow softly (R edges, CREATE).
+// Tight single-pass bloom on the brightest highlights only. Wide, sparse
+// taps drew visible offset copies of the R and CREATE, so radii stay small.
 vec3 bloom=vec3(0.);
 for(int i=0;i<12;i++){
-  float a=float(i)*.5235988; vec2 d=vec2(cos(a)/uAspect.x,sin(a));
-  bloom+=max(sceneAt(uv+d*.006)-.9,0.)+max(sceneAt(uv+d*.018)-.9,0.)*.75+max(sceneAt(uv+d*.04)-.9,0.)*.45;
+  float a=float(i)*.5235988+.26; vec2 d=vec2(cos(a)/uAspect.x,sin(a));
+  bloom+=max(sceneAt(uv+d*.0022)-.94,0.)+max(sceneAt(uv+d*.005)-.94,0.)*.6;
 }
-col+=bloom/12.*1.1*(1.-step(.9999,uVisibleService));
+col+=bloom/12.*.45*(1.-step(.9999,uVisibleService));
 // Opening burst: a soft ring grows with load progress; inside it the scene
 // zooms out from 2x, and both scene and loader drawing are pushed radially
 // by sin(r*PI), so the push peaks at the ring itself.

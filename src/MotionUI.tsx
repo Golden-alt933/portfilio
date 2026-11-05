@@ -144,6 +144,56 @@ export function ScrambleText({
   );
 }
 
+const SENTENCE_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/*+-#";
+
+/**
+ * Loader sentence: blank for 400ms, then every character scrambles and each
+ * non-space character locks in 300ms + 40ms * index later. Unresolved
+ * characters redraw every 32ms.
+ */
+export function LoaderSentence({ text, className }: { text: string; className?: string }) {
+  const reducedMotion = useSystemReducedMotion();
+  const [visual, setVisual] = useState(reducedMotion ? text : "");
+  useEffect(() => {
+    if (reducedMotion) {
+      setVisual(text);
+      return;
+    }
+    const chars = Array.from(text);
+    const order: number[] = [];
+    let n = 0;
+    for (const char of chars) order.push(/\s/.test(char) ? -1 : n++);
+    const startedAt = performance.now() + 400;
+    const total = 300 + 40 * n;
+    let timer = 0;
+    const tick = () => {
+      const elapsed = performance.now() - startedAt;
+      if (elapsed < 0) {
+        timer = window.setTimeout(tick, 32);
+        return;
+      }
+      const next = chars
+        .map((char, i) => {
+          if (order[i] < 0) return char;
+          if (elapsed >= 300 + order[i] * 40) return char;
+          return SENTENCE_CHARS[Math.floor(Math.random() * SENTENCE_CHARS.length)];
+        })
+        .join("");
+      setVisual(next);
+      if (elapsed < total) timer = window.setTimeout(tick, 32);
+      else setVisual(text);
+    };
+    tick();
+    return () => window.clearTimeout(timer);
+  }, [text, reducedMotion]);
+  return (
+    <span className={className}>
+      <span className="motion-accessible-label">{text}</span>
+      <span aria-hidden="true">{visual || " "}</span>
+    </span>
+  );
+}
+
 type SlotLabelProps = { text: string; className?: string };
 
 /** A two-position text slot for pill controls. The accessible name stays singular. */
@@ -498,7 +548,7 @@ export function IntroLoader({
       </div>
       {/* Centred line under the mark, like the reference's mission sentence. */}
       <p className="intro-loader__tagline" aria-hidden="true">
-        <ScrambleText text="Cut with feeling. Build with purpose." as="span" />
+        <LoaderSentence text="Cut with feeling. Build with purpose." />
       </p>
       <div className="intro-loader__meta">
         <ScrambleText
