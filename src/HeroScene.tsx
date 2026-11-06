@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
+import { toCreasedNormals } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import type { Project } from "./content";
 import type { SceneState } from "./SceneState";
 import { drawCreateWordmark } from "./wordmark";
@@ -302,6 +303,26 @@ export default function HeroScene({
     });
     backgroundTarget.texture.colorSpace = THREE.NoColorSpace;
     scene.background = backgroundTarget.texture;
+    // The R refracts a small 512x512 copy of the background, as the reference
+    // does: what is seen through the glass is smooth and soft, while the
+    // letter's own edges and highlights stay sharp.
+    const softTarget = new THREE.WebGLRenderTarget(512, 512, {
+      minFilter: THREE.LinearFilter,
+      magFilter: THREE.LinearFilter,
+      depthBuffer: false,
+    });
+    softTarget.texture.colorSpace = THREE.NoColorSpace;
+    const copyMaterial = new THREE.ShaderMaterial({
+      uniforms: { uTex: { value: backgroundTarget.texture } },
+      vertexShader: fullscreenVertex,
+      fragmentShader: "varying vec2 vUv; uniform sampler2D uTex; void main(){ gl_FragColor=texture2D(uTex,vUv); }",
+      depthTest: false,
+      depthWrite: false,
+      toneMapped: false,
+    });
+    const copyScene = new THREE.Scene();
+    const copyQuad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), copyMaterial);
+    copyScene.add(copyQuad);
     const fluid = new FluidField(
       renderer,
       window.innerWidth,
@@ -402,14 +423,20 @@ export default function HeroScene({
     hole.bezierCurveTo(0.79, 0.18, 0.86, 1.22, 0.06, 1.22);
     hole.closePath();
     shape.holes.push(hole);
-    const rGeometry = new THREE.ExtrudeGeometry(shape, {
+    // Smooth-shaded like a modelled mesh: ExtrudeGeometry gives every facet
+    // its own flat normal, which bands the refraction across the bevels and
+    // curves. Creased normals blend faces under 40 degrees (bevel steps, curve
+    // segments) and keep the real corners sharp.
+    const extruded = new THREE.ExtrudeGeometry(shape, {
       depth: 0.48,
       bevelEnabled: true,
-      bevelThickness: 0.075,
-      bevelSize: 0.06,
-      bevelSegments: 5,
-      curveSegments: 28,
+      bevelThickness: 0.1,
+      bevelSize: 0.07,
+      bevelSegments: 12,
+      curveSegments: 48,
     });
+    const rGeometry = toCreasedNormals(extruded, THREE.MathUtils.degToRad(40));
+    extruded.dispose();
     rGeometry.computeBoundingBox();
     const geometryCenter = rGeometry.boundingBox!.getCenter(
       new THREE.Vector3(),
@@ -422,7 +449,7 @@ export default function HeroScene({
     const slotRay = new THREE.Vector3();
     const rMaterial = new THREE.ShaderMaterial({
       uniforms: {
-        uScene: { value: backgroundTarget.texture },
+        uScene: { value: softTarget.texture },
         uEnv: { value: envMap },
         uResolution: { value: new THREE.Vector2(1, 1) },
         uFluid: { value: fluid.velocity.texture },
@@ -441,7 +468,6 @@ export default function HeroScene({
         uHalfDepth: { value: 0.3 },
         uHalfHeight: { value: 2.1 },
         uRipple: { value: 0 },
-        uLetterRot: { value: new THREE.Matrix3() },
       },
       vertexShader: refractionVertex,
       fragmentShader: refractionFragment,
@@ -1099,6 +1125,8 @@ export default function HeroScene({
       renderer.setRenderTarget(backgroundTarget);
       renderer.clear(true, true, true);
       renderer.render(bgScene, bgCamera);
+      renderer.setRenderTarget(softTarget);
+      renderer.render(copyScene, bgCamera);
       const entryProgress = THREE.MathUtils.smoothstep(workEntry, 0.2, 0.86);
       const panelExit = THREE.MathUtils.clamp(workExit, 0, 1);
       for (const panel of panels) {
@@ -1229,7 +1257,7 @@ export default function HeroScene({
         lookTarget.set(0, 0, 0).lerp(faceWorld, swing);
         camera.lookAt(lookTarget);
       }
-      rMaterial.uniforms.uScene.value = backgroundTarget.texture;
+      rMaterial.uniforms.uScene.value = softTarget.texture;
       rMaterial.uniforms.uResolution.value.set(
         width * renderer.getPixelRatio(),
         height * renderer.getPixelRatio(),
@@ -1237,10 +1265,6 @@ export default function HeroScene({
       rMaterial.uniforms.uFluid.value = fluid.velocity.texture;
       rMaterial.uniforms.uInk.value = fluid.dye.texture;
       rMaterial.uniforms.uTime.value = now * 0.001;
-      // Object-to-world rotation, so the surface bump is computed per pixel
-      // in the letter's own space and turned with it.
-      letter.updateMatrixWorld();
-      (rMaterial.uniforms.uLetterRot.value as THREE.Matrix3).setFromMatrix4(letter.matrixWorld);
       rMaterial.uniforms.uRoughness.value = sceneTweaks.roughness;
       rMaterial.uniforms.uNoiseScale.value = sceneTweaks.noiseScale;
       rMaterial.uniforms.uIorRGB.value.set(
@@ -1378,6 +1402,9 @@ export default function HeroScene({
       mediaCache.forEach((media) => media.dispose());
       mediaCache.clear();
       backgroundTarget.dispose();
+      softTarget.dispose();
+      copyQuad.geometry.dispose();
+      copyMaterial.dispose();
       compositeTarget.dispose();
       compositePlane.geometry.dispose();
       compositeMaterial.dispose();

@@ -132,80 +132,58 @@ gl_FragColor=vec4(col,1.); }`;
 
 export const refractionFragment = `precision highp float; varying vec2 vUv; varying vec3 vNormal,vWorld,vLocal;
 uniform sampler2D uScene,uFluid,uInk; uniform samplerCube uEnv; uniform vec2 uResolution; uniform vec3 uIorRGB;
-uniform float uTime,uLight,uReveal,uServices,uContact,uRoughness,uNoiseScale,uRipple; uniform vec3 uTint; uniform mat3 uLetterRot;
-vec3 sceneAt(vec2 uv){ return texture2D(uScene,clamp(uv,vec2(.002),vec2(.998))).rgb; }
-float lum(vec3 c){ return dot(c,vec3(.299,.587,.114)); }
-// Sine-free hash: no visible grid or banding in the noise.
+uniform float uTime,uLight,uReveal,uServices,uContact,uRoughness,uNoiseScale,uRipple; uniform vec3 uTint;
+// Same technique as the reference A, written for the R:
+// - the scene behind is a soft 512x512 copy; it is shifted along the
+//   view-space normal by a fixed, strong amount (strongest on the bevels);
+// - eight samples per pixel, each with a small random extra slide, applied
+//   x1 / x2 / x4 to red / green / blue, averaged into a smooth rainbow smear;
+// - a noise field marks rough patches where the samples are scattered;
+// - a pin-sharp GGX highlight, Schlick Fresnel (f0 .1) mixing a soft studio
+//   reflection, and an overall 1.2 boost so the glass reads luminous.
+float rnd(vec2 p){ vec3 q=fract(vec3(p.xyx)*.1031); q+=dot(q,q.yzx+33.33); return fract((q.x+q.y)*q.z); }
 float hash3(vec3 p){ p=fract(p*.1031); p+=dot(p,p.zyx+31.32); return fract((p.x+p.y)*p.z); }
-float vnoise(vec3 p){ vec3 i=floor(p),f=fract(p); f=f*f*(3.-2.*f);
+float vnoise(vec3 p){ vec3 i=floor(p),f=fract(p); f=f*f*f*(f*(f*6.-15.)+10.);
   return mix(mix(mix(hash3(i),hash3(i+vec3(1,0,0)),f.x),mix(hash3(i+vec3(0,1,0)),hash3(i+vec3(1,1,0)),f.x),f.y),
              mix(mix(hash3(i+vec3(0,0,1)),hash3(i+vec3(1,0,1)),f.x),mix(hash3(i+vec3(0,1,1)),hash3(i+vec3(1,1,1)),f.x),f.y),f.z); }
-float fbm(vec3 p){ float a=.5,s=0.; for(int i=0;i<3;i++){ s+=a*vnoise(p); p=p*2.07+vec3(1.7,9.2,4.3); a*=.5; } return s; }
-// Monochrome studio for reflections: soft white key above, black below.
-float studio(vec3 d){ return smoothstep(-.2,.9,d.y)*.85+pow(max(dot(d,normalize(vec3(-.6,.5,.7))),0.),24.)*1.6; }
-vec2 toScreen(vec3 d){ vec4 v=viewMatrix*vec4(d,0.); return v.xy; }
-// Glass R after the reference A:
-// 1. Rough surface: a 4-octave height field in the letter's own space is
-//    turned into a bumped normal (derivative bump mapping), so the surface
-//    reads as hammered, displaced glass and every refraction wobbles with it.
-// 2. Ray-marched refraction: each colour channel is refracted with its own
-//    index; the refracted ray is marched through the body in five steps,
-//    picking up interior noise at each step, and the scene is sampled along
-//    it. Thicker paths (toward the edges) bend further.
-// 3. Grading: each channel keeps only the brightness of what it sees, so
-//    the glass is black and white wherever the channels agree, and turns
-//    into thin rainbow fringes only where dispersion pulls them apart.
-void main(){
-vec3 N=normalize(vNormal); if(!gl_FrontFacing) N=-N;
-vec3 V=normalize(cameraPosition-vWorld); vec3 I=-V;
-vec2 screen=gl_FragCoord.xy/uResolution; vec2 vel=texture2D(uFluid,screen).rg;
-// 1. Displacement-style bump, computed per pixel: the height field's
-// gradient is taken in the letter's own space and rotated to world space,
-// so the dents are smooth (no 2x2 pixel blocks) and turn with the letter.
-float k=uNoiseScale*.15;
-vec3 hp=vLocal*k+vec3(0.,0.,uTime*.02);
-float e=.03;
-float h=fbm(hp);
-vec3 gObj=vec3(fbm(hp+vec3(e,0.,0.))-h,fbm(hp+vec3(0.,e,0.))-h,fbm(hp+vec3(0.,0.,e))-h)/e*k;
-vec3 gW=uLetterRot*gObj;
-float bump=.05+uRoughness*.35;
-N=normalize(N-(gW-dot(gW,N)*N)*bump);
-float ndv=clamp(dot(N,V),0.,1.); float edge=1.-ndv;
-// 2. Ray-marched, per-channel refraction.
-float thick=.2+.42*pow(edge,1.5);
-float spread=(uIorRGB.r-uIorRGB.b)*3.*(1.+edge*2.5);
-vec3 tR=refract(I,N,1./(1.47-spread)), tG=refract(I,N,1./1.47), tB=refract(I,N,1./(1.47+spread));
-vec2 base=toScreen(I);
-vec2 oR=(toScreen(tR)-base)*thick, oG=(toScreen(tG)-base)*thick, oB=(toScreen(tB)-base)*thick;
-vec3 acc=vec3(0.); float wsum=0.;
-for(int i=0;i<5;i++){
-  float t=(float(i)+1.)/5.;
-  vec3 ip=vLocal*2.2+N*t*.6;
-  vec2 wob=(vec2(vnoise(ip),vnoise(ip+5.3))-.5)*.008*(.4+uRoughness*3.)*t;
-  vec2 o=screen+wob+vel*.003;
-  float w=.4+t;
-  acc+=vec3(lum(sceneAt(o+oR*t)),lum(sceneAt(o+oG*t)),lum(sceneAt(o+oB*t)))*w;
-  wsum+=w;
+vec3 studio(vec3 d){
+  vec3 c=mix(vec3(.08,.08,.1),vec3(.42,.46,.52),smoothstep(-.6,.2,d.y));
+  c=mix(c,vec3(.92,.94,.97),smoothstep(.2,.95,d.y));
+  return c;
 }
-vec3 refr=acc/wsum;
-// 3. Stark contrast, slightly cooler where the glass is thick.
-refr=smoothstep(vec3(.1),vec3(.72),refr);
-refr=refr*refr*(3.-2.*refr);
-refr=refr*mix(.95,1.1,edge)+.012;
-// Fresnel reflection, white glints and a crisp bright line on the bevels.
-float F=.04+.96*pow(edge,4.);
-vec3 R=reflect(I,N);
-vec3 color=mix(refr,vec3(studio(R)),F*.9);
-vec3 L=normalize(vec3(-1.,.8,1.)); vec3 H=normalize(L+V);
-float a2=.0016; float ndh=max(dot(N,H),0.); float dd=ndh*ndh*(a2-1.)+1.;
-color+=vec3(min(a2/(3.14159*dd*dd),30.)*.03);
-// Broader second light catches the dents as soft glints across the face.
-vec3 L2=normalize(vec3(.8,.4,1.)); vec3 H2=normalize(L2+V); float b2=.02; float nh2=max(dot(N,H2),0.); float d2=nh2*nh2*(b2-1.)+1.;
-color+=vec3(min(b2/(3.14159*d2*d2),12.)*.025);
-color+=vec3(smoothstep(.55,.9,edge)*(1.-smoothstep(.9,1.,edge))*.18);
-color*=uTint;
-float contour=step(.58,fract((vUv.x+vUv.y)*42.)); vec3 light=vec3(.17,.78,.73); color=mix(color,light,.38*uLight*contour); color=mix(color,vec3(.84,.98,.95),uLight*.14);
-gl_FragColor=vec4(color,(1.-uLight*.99)*(1.-uServices*.82)*(1.-uContact)); }`;
+float ggx(float nh,float r){ float a2=r*r; a2*=a2; float nh2=nh*nh; if(nh2<=0.) return 0.; float d=nh2*(a2-1.)+1.; return a2/(3.14159*d*d); }
+void main(){
+vec3 Nw=normalize(vNormal); if(!gl_FrontFacing) Nw=-Nw;
+vec3 N=normalize((viewMatrix*vec4(Nw,0.)).xyz);
+vec3 V=normalize((viewMatrix*vec4(cameraPosition-vWorld,0.)).xyz);
+vec2 screen=gl_FragCoord.xy/uResolution;
+vec2 vel=texture2D(uFluid,screen).rg;
+// Rough patches from a domain-warped noise field on the letter.
+vec3 q=vLocal*uNoiseScale*.11;
+float n1=vnoise(q), n1b=vnoise(q+vec3(4.7,1.3,8.9));
+float n2=vnoise(q*.12+vec3(n1-.5,n1b-.5,0.)*2.);
+float rough=smoothstep(.3,.8,n2)*uRoughness;
+vec2 rn=N.xy*(1.-N.z*.7);
+float power=.1;
+vec3 acc=vec3(0.);
+for(int i=0;i<8;i++){
+  float fi=float(i);
+  float slide=.005+rnd(gl_FragCoord.xy+fi*19.7)*.007;
+  vec2 jit=(vec2(rnd(gl_FragCoord.xy+fi*7.3+.5),rnd(gl_FragCoord.xy+fi*11.1+2.7))-.5)*rough*.3;
+  vec2 b=screen+jit+vel*.003;
+  acc+=vec3(texture2D(uScene,clamp(b-rn*(power+slide),vec2(.001),vec2(.999))).r,
+            texture2D(uScene,clamp(b-rn*(power+slide*2.),vec2(.001),vec2(.999))).g,
+            texture2D(uScene,clamp(b-rn*(power+slide*4.),vec2(.001),vec2(.999))).b)*.9;
+}
+vec3 c=acc/8.;
+vec3 L=normalize(vec3(-1.,.8,-1.)); vec3 H=normalize(V+L);
+c+=vec3(min(ggx(dot(N,H),.003+rough*.4),40.));
+float F=.1+.9*pow(1.-clamp(dot(V,N),0.,1.),5.);
+vec3 env=studio(reflect(-V,N));
+c+=mix(c,env,F*.9)*(1.-F);
+c*=1.2*uTint;
+float contour=step(.58,fract((vUv.x+vUv.y)*42.)); vec3 light=vec3(.17,.78,.73); c=mix(c,light,.38*uLight*contour); c=mix(c,vec3(.84,.98,.95),uLight*.14);
+gl_FragColor=vec4(c,(1.-uLight*.99)*(1.-uServices*.82)*(1.-uContact)); }`;
 
 export const displayFragment = `precision highp float; varying vec2 vUv; uniform float uOpacity,uTime;
 void main(){
