@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft, ArrowRight, ArrowUpRight, Check, Mail } from "lucide-react";
-import { contactEndpoint, contactTopics, profile } from "./content";
+import { contactAccessKey, contactEndpoint, contactTopics, profile } from "./content";
 import { RiseBlock, RiseText } from "./RiseText";
 import "./project-page.css";
 import "./contact-page.css";
@@ -34,25 +34,28 @@ export default function ContactPage() {
       setStatus("sent");
       return;
     }
+    if (!contactAccessKey) {
+      setStatus("error");
+      return;
+    }
     setStatus("sending");
     try {
       const response = await fetch(contactEndpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify({
+          access_key: contactAccessKey,
+          subject: `New enquiry from ${name} via portfolio`,
+          from_name: "R Studio portfolio",
           name,
           email,
+          replyto: email,
           topic,
           message,
-          _subject: `New enquiry from ${name} via portfolio`,
-          _template: "table",
-          _captcha: "false",
-          _replyto: email,
-          _honey: "",
         }),
       });
-      const result = (await response.json().catch(() => null)) as { success?: string | boolean } | null;
-      if (response.ok && (result?.success === true || result?.success === "true")) {
+      const result = (await response.json().catch(() => null)) as { success?: boolean } | null;
+      if (response.ok && result?.success === true) {
         setSentName(name);
         setStatus("sent");
         form.reset();

@@ -47,12 +47,14 @@ export const profile = {
 };
 
 /**
- * The contact form posts here (FormSubmit, no backend needed). FormSubmit
- * sends a one-time activation email to `profile.contactEmail` on the very
- * first submission; it must be confirmed before any messages arrive.
- * To use a different inbox, change `profile.contactEmail` above.
+ * The contact form posts to Web3Forms (no backend needed), which emails each
+ * message to the inbox its access key was created for. Get a free key at
+ * https://web3forms.com by entering `profile.contactEmail`; it arrives by
+ * email. The key is meant to be public, so it can live here. Until it is set,
+ * the form points visitors to the email link instead.
  */
-export const contactEndpoint = `https://formsubmit.co/ajax/${profile.contactEmail}`;
+export const contactEndpoint = "https://api.web3forms.com/submit";
+export const contactAccessKey = "";
 
 /** Topics a visitor can pick on the contact form. */
 export const contactTopics = [
