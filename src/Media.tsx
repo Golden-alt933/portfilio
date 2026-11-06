@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { ExternalLink, Play, X } from "lucide-react";
 import { instagramEmbedUrl } from "./content";
 import type { Project } from "./content";
+import VideoPlayer from "./VideoPlayer";
 
 export function ProjectVisual({
   project,
@@ -52,39 +53,17 @@ export function ProjectVisual({
 }
 export function ProjectMedia({ project }: { project: Project }) {
   const [loaded, setLoaded] = useState(false);
-  const [error, setError] = useState(false);
   useEffect(() => {
     setLoaded(false);
-    setError(false);
   }, [project.slug]);
   if (project.videoUrl)
     return (
-      <div
-        className={`video-frame ${project.format.toLowerCase().includes("9:16") ? "vertical" : ""}`}
-      >
-        <video
-          controls
-          playsInline
-          preload="metadata"
-          poster={project.posterUrl}
-          aria-label={`${project.title} final video`}
-          onError={() => setError(true)}
-          src={project.videoUrl}
-        />
-        {error && (
-          <p role="status">
-            This video could not load.{" "}
-            <a
-              href={project.videoUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Open video directly
-            </a>
-            .
-          </p>
-        )}
-      </div>
+      <VideoPlayer
+        key={project.slug}
+        src={project.videoUrl}
+        poster={project.posterUrl}
+        title={project.title}
+      />
     );
   const embedUrl = project.instagramUrl
     ? instagramEmbedUrl(project.instagramUrl)
