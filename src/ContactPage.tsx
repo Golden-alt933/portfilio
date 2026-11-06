@@ -14,9 +14,9 @@ export default function ContactPage() {
   const [sentName, setSentName] = useState("");
 
   useEffect(() => {
-    document.title = `Contact — ${profile.name} Portfolio`;
+    document.title = "Contact — R Studio";
     return () => {
-      document.title = "R — Frame & Function";
+      document.title = "R Studio — Frame & Function";
     };
   }, []);
 
@@ -45,8 +45,8 @@ export default function ContactPage() {
         headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify({
           access_key: contactAccessKey,
-          subject: `New enquiry from ${name} via portfolio`,
-          from_name: "R Studio portfolio",
+          subject: `R Studio ▸ New enquiry from ${name}`,
+          from_name: "R Studio",
           name,
           email,
           replyto: email,

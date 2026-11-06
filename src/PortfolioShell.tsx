@@ -72,9 +72,10 @@ export default function PortfolioShell({ children }: { children: ReactNode }) {
         <Link
           to="/"
           className="brand shell-brand"
-          aria-label="R portfolio home"
+          aria-label="R Studio home"
         >
-          R<span>STUDIO</span>
+          <BrandMark />
+          <span>STUDIO</span>
         </Link>
         <nav
           ref={navigation}
@@ -121,9 +122,10 @@ export default function PortfolioShell({ children }: { children: ReactNode }) {
         <Link
           to="/"
           className="brand shell-brand"
-          aria-label="R portfolio home"
+          aria-label="R Studio home"
         >
-          R<span>STUDIO</span>
+          <BrandMark />
+          <span>STUDIO</span>
         </Link>
         <div className="footer-pages">
           <Link to="/#top">
@@ -145,5 +147,19 @@ export default function PortfolioShell({ children }: { children: ReactNode }) {
       </footer>
       )}
     </>
+  );
+}
+
+/** The R Studio mark: an R whose counter is a play button. Ink follows the text colour. */
+function BrandMark() {
+  return (
+    <svg className="brand-mark" viewBox="15 12 33 40" aria-hidden="true" focusable="false">
+      <path
+        fill="currentColor"
+        fillRule="evenodd"
+        d="M15 12h19a12.5 12.5 0 0 1 4.4 24.2L48 52h-9.6l-8.6-14.5H23.5V52H15zM25 18.2v13.6L36.2 25z"
+      />
+      <path fill="#85f4ff" d="M27.6 21.6v6.8l5.8-3.4z" />
+    </svg>
   );
 }

@@ -42,6 +42,13 @@ body[data-intro-stage="revealing"] .chapter-rail:focus-within {
   font: 600 23px/1 var(--font-sans);
   letter-spacing: -0.045em;
 }
+.shell-brand .brand-mark {
+  width: auto;
+  height: 0.74em;
+  align-self: center;
+  margin-right: 0.04em;
+  overflow: visible;
+}
 .shell-header .nav {
   gap: 40px;
   font: 400 14px/1.4 var(--font-mono);

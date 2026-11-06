@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ArrowLeft, ArrowRight, ArrowUpRight, Github, Instagram } from "lucide-react";
-import { profile, projects } from "./content";
+import { projects } from "./content";
 import { ProjectMedia } from "./Media";
 import { RiseBlock, RiseText } from "./RiseText";
 import "./project-page.css";
@@ -25,13 +25,13 @@ export default function ProjectPage() {
   const project = projects.find((item) => item.slug === slug);
   useEffect(() => {
     document.title = project
-      ? `${project.title} — ${profile.name} Portfolio`
+      ? `${project.title} — R Studio`
       : "Project not found — R";
     const description = document.querySelector('meta[name="description"]');
     const previous = description?.getAttribute("content");
     if (project) description?.setAttribute("content", project.tagline);
     return () => {
-      document.title = "R — Frame & Function";
+      document.title = "R Studio — Frame & Function";
       if (previous) description?.setAttribute("content", previous);
     };
   }, [project]);
