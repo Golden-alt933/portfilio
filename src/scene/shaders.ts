@@ -134,51 +134,70 @@ export const refractionFragment = `precision highp float; varying vec2 vUv; vary
 uniform sampler2D uScene,uFluid,uInk; uniform samplerCube uEnv; uniform vec2 uResolution; uniform vec3 uIorRGB;
 uniform float uTime,uLight,uReveal,uServices,uContact,uRoughness,uNoiseScale,uRipple; uniform vec3 uTint;
 vec3 sceneAt(vec2 uv){ return texture2D(uScene,clamp(uv,vec2(.002),vec2(.998))).rgb; }
-float vnoise(vec3 p){ vec3 i=floor(p),f=fract(p); f=f*f*(3.-2.*f); float n=dot(i,vec3(1.,57.,113.));
-  float a=fract(sin(n)*43758.5),b=fract(sin(n+1.)*43758.5),c=fract(sin(n+57.)*43758.5),d=fract(sin(n+58.)*43758.5);
-  float e=fract(sin(n+113.)*43758.5),f2=fract(sin(n+114.)*43758.5),g=fract(sin(n+170.)*43758.5),h=fract(sin(n+171.)*43758.5);
-  return mix(mix(mix(a,b,f.x),mix(c,d,f.x),f.y),mix(mix(e,f2,f.x),mix(g,h,f.x),f.y),f.z); }
-float fbm(vec3 p){ return vnoise(p)*.55+vnoise(p*2.03+3.1)*.3+vnoise(p*4.1+7.7)*.15; }
-// Soft gradient studio with no hard-edged light shapes (a box light read as a
-// square reflection on the front face): cool white above, teal/blue at the
-// horizon, deep violet below, and one broad diffuse highlight.
-vec3 studio(vec3 d){
-  vec3 c=mix(vec3(.09,.06,.24),vec3(.05,.30,.42),smoothstep(-.7,.1,d.y));
-  c=mix(c,vec3(.74,.83,.94),smoothstep(.1,.9,d.y));
-  c+=vec3(.5,.6,.8)*pow(max(dot(d,normalize(vec3(-.6,.5,.6))),0.),6.)*.6;
-  return c;
-}
-// Glass after the reference's logo shader: the rendered scene is refracted
-// with channel-separated slides through clear, polished glass, a soft
-// gradient reflection and a gentle cool glow toward the edges.
+float lum(vec3 c){ return dot(c,vec3(.299,.587,.114)); }
+float hash3(vec3 p){ return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453); }
+float vnoise(vec3 p){ vec3 i=floor(p),f=fract(p); f=f*f*(3.-2.*f);
+  return mix(mix(mix(hash3(i),hash3(i+vec3(1,0,0)),f.x),mix(hash3(i+vec3(0,1,0)),hash3(i+vec3(1,1,0)),f.x),f.y),
+             mix(mix(hash3(i+vec3(0,0,1)),hash3(i+vec3(1,0,1)),f.x),mix(hash3(i+vec3(0,1,1)),hash3(i+vec3(1,1,1)),f.x),f.y),f.z); }
+float fbm(vec3 p){ float a=.5,s=0.; for(int i=0;i<4;i++){ s+=a*vnoise(p); p=p*2.07+vec3(1.7,9.2,4.3); a*=.5; } return s; }
+// Monochrome studio for reflections: soft white key above, black below.
+float studio(vec3 d){ return smoothstep(-.2,.9,d.y)*.85+pow(max(dot(d,normalize(vec3(-.6,.5,.7))),0.),24.)*1.6; }
+vec2 toScreen(vec3 d){ vec4 v=viewMatrix*vec4(d,0.); return v.xy; }
+// Glass R after the reference A:
+// 1. Rough surface: a 4-octave height field in the letter's own space is
+//    turned into a bumped normal (derivative bump mapping), so the surface
+//    reads as hammered, displaced glass and every refraction wobbles with it.
+// 2. Ray-marched refraction: each colour channel is refracted with its own
+//    index; the refracted ray is marched through the body in five steps,
+//    picking up interior noise at each step, and the scene is sampled along
+//    it. Thicker paths (toward the edges) bend further.
+// 3. Grading: each channel keeps only the brightness of what it sees, so
+//    the glass is black and white wherever the channels agree, and turns
+//    into thin rainbow fringes only where dispersion pulls them apart.
 void main(){
 vec3 N=normalize(vNormal); if(!gl_FrontFacing) N=-N;
-vec3 V=normalize(cameraPosition-vWorld);
+vec3 V=normalize(cameraPosition-vWorld); vec3 I=-V;
 vec2 screen=gl_FragCoord.xy/uResolution; vec2 vel=texture2D(uFluid,screen).rg;
-vec3 Nv=normalize((viewMatrix*vec4(N,0.)).xyz);
+// 1. Displacement-style bump.
+vec3 hp=vLocal*uNoiseScale*.15+vec3(0.,0.,uTime*.02);
+float h=fbm(hp);
+vec3 dpx=dFdx(vWorld), dpy=dFdy(vWorld);
+float dhx=dFdx(h), dhy=dFdy(h);
+vec3 r1=cross(dpy,N), r2=cross(N,dpx); float det=dot(dpx,r1);
+vec3 grad=sign(det)*(dhx*r1+dhy*r2);
+float bump=.14+uRoughness*.9;
+N=normalize(abs(det)*N-grad*bump);
 float ndv=clamp(dot(N,V),0.,1.); float edge=1.-ndv;
-float rough=clamp(uRoughness*.25,0.,1.);
-float field=0.;
-vec2 shift=-Nv.xy*(.1+.08*edge);
-vec2 dir=normalize(shift+vec2(.0001));
-float ior=(uIorRGB.r-uIorRGB.b);
-float slide=.007*(.4+ior*8.)*(1.+edge);
-vec2 o=screen+shift+vel*.003;
-vec3 refr=vec3(sceneAt(o+dir*slide).r,sceneAt(o+dir*slide*2.).g,sceneAt(o+dir*slide*4.).b)*.92;
-refr*=mix(vec3(.84,.9,.98),vec3(1.),edge*.5);
-float F=.1+.9*pow(edge,5.);
-vec3 R=reflect(-V,N);
-vec3 env=studio(R);
+// 2. Ray-marched, per-channel refraction.
+float thick=.14+.32*pow(edge,1.5);
+float spread=(uIorRGB.r-uIorRGB.b)*2.2*(1.+edge*2.5);
+vec3 tR=refract(I,N,1./(1.47-spread)), tG=refract(I,N,1./1.47), tB=refract(I,N,1./(1.47+spread));
+vec2 base=toScreen(I);
+vec2 oR=(toScreen(tR)-base)*thick, oG=(toScreen(tG)-base)*thick, oB=(toScreen(tB)-base)*thick;
+vec3 acc=vec3(0.); float wsum=0.;
+for(int i=0;i<5;i++){
+  float t=(float(i)+1.)/5.;
+  vec3 ip=vLocal*2.2+N*t*.6;
+  vec2 wob=(vec2(vnoise(ip),vnoise(ip+5.3))-.5)*.008*(.4+uRoughness*3.)*t;
+  vec2 o=screen+wob+vel*.003;
+  float w=.4+t;
+  acc+=vec3(lum(sceneAt(o+oR*t)),lum(sceneAt(o+oG*t)),lum(sceneAt(o+oB*t)))*w;
+  wsum+=w;
+}
+vec3 refr=acc/wsum;
+// 3. Stark contrast, slightly cooler where the glass is thick.
+refr=smoothstep(vec3(.02),vec3(.85),refr);
+refr=refr*mix(.95,1.1,edge)+.035;
+// Fresnel reflection, white glints and a crisp bright line on the bevels.
+float F=.04+.96*pow(edge,4.);
+vec3 R=reflect(I,N);
+vec3 color=mix(refr,vec3(studio(R)),F*.9);
 vec3 L=normalize(vec3(-1.,.8,1.)); vec3 H=normalize(L+V);
-float ga=.003+rough*.4; float a2=ga*ga; float ndh=max(dot(N,H),0.); float dd=ndh*ndh*(a2-1.)+1.; float spec=a2/(3.14159*dd*dd);
-vec3 color=mix(refr,env,F*.85+.06);
-color+=vec3(1.)*min(spec,20.)*.03;
-// Soft glow: a gentle cool light that builds toward the bevels, so the
-// letter is lit from within without any surface texture.
-color+=vec3(.70,.80,1.)*(pow(edge,2.5)*.22+.03);
-color*=1.06*uTint;
+float a2=.0016; float ndh=max(dot(N,H),0.); float dd=ndh*ndh*(a2-1.)+1.;
+color+=vec3(min(a2/(3.14159*dd*dd),30.)*.03);
+color+=vec3(smoothstep(.55,.9,edge)*(1.-smoothstep(.9,1.,edge))*.18);
+color*=uTint;
 float contour=step(.58,fract((vUv.x+vUv.y)*42.)); vec3 light=vec3(.17,.78,.73); color=mix(color,light,.38*uLight*contour); color=mix(color,vec3(.84,.98,.95),uLight*.14);
-color*=1.+min(length(vel),1.)*.06;
 gl_FragColor=vec4(color,(1.-uLight*.99)*(1.-uServices*.82)*(1.-uContact)); }`;
 
 export const displayFragment = `precision highp float; varying vec2 vUv; uniform float uOpacity,uTime;
