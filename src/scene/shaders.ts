@@ -65,7 +65,8 @@ float fade=smoothstep(.82,1.,fract(cycle));
 float jt=uTime*(.2+rnd*.6)+rnd*7.; float jEpoch=floor(jt); float jPhase=fract(jt);
 vec2 jump=(vec2(hash(id+jEpoch*1.3),hash(id-jEpoch*2.1))-.5)*.5*step(.55,hash(id+jEpoch+4.))*(1.-smoothstep(0.,.3,jPhase));
 vec2 pUv=wall*vec2(1.6,1.)+jump*size;
-vec3 pat=mix(panelPattern(mode,pUv,rnd),panelPattern(nextMode,pUv,rnd),fade);
+vec3 pat=panelPattern(mode,pUv,rnd);
+if(fade>.001) pat=mix(pat,panelPattern(nextMode,pUv,rnd),fade);
 float blackout=1.-step(.84,hash(id+floor(uTime*(.8+rnd))))*.92;
 // Each panel's palette drifts around the colour wheel on its own clock.
 pat=hueRotate(pat,sin(uTime*.13+rnd*6.283)*.6);
@@ -162,14 +163,8 @@ vec2 shift=-Nv.xy*(.1+.08*edge);
 vec2 dir=normalize(shift+vec2(.0001));
 float ior=(uIorRGB.r-uIorRGB.b);
 float slide=.007*(.4+ior*8.)*(1.+edge);
-float radius=rough*.03;
-vec3 refr=vec3(0.);
-for(int i=0;i<8;i++){
-  float a=float(i)*2.39996+field*6.;
-  vec2 o=screen+shift+vec2(cos(a),sin(a))*radius*sqrt((float(i)+.5)/8.)+vel*.003;
-  refr+=vec3(sceneAt(o+dir*slide).r,sceneAt(o+dir*slide*2.).g,sceneAt(o+dir*slide*4.).b);
-}
-refr=refr/8.*.92;
+vec2 o=screen+shift+vel*.003;
+vec3 refr=vec3(sceneAt(o+dir*slide).r,sceneAt(o+dir*slide*2.).g,sceneAt(o+dir*slide*4.).b)*.92;
 refr*=mix(vec3(.84,.9,.98),vec3(1.),edge*.5);
 float F=.1+.9*pow(edge,5.);
 vec3 R=reflect(-V,N);
@@ -208,6 +203,7 @@ export const panelVertex = fullscreenVertex;
 export const panelFragment = `precision highp float; varying vec2 vUv; uniform sampler2D uMap,uMedia; uniform float uOpacity,uMediaMix,uMediaIsVideo,uMediaAspect,uMapAspect,uFrameAspect,uDim;
 vec2 coverUv(vec2 uv,float aspect){ vec2 p=uv-.5; if(aspect>uFrameAspect){p.x*=uFrameAspect/aspect;} else {p.y*=aspect/uFrameAspect;} return clamp(p+.5,vec2(.002),vec2(.998)); }
 vec3 imageAt(vec2 uv){
+  if(uMediaMix>.999){ vec3 v=texture2D(uMedia,coverUv(uv,uMediaAspect)).rgb; return mix(v,sRGBTransferEOTF(vec4(v,1.)).rgb,uMediaIsVideo); }
   vec3 a=texture2D(uMap,coverUv(uv,uMapAspect)).rgb;
   vec3 m=texture2D(uMedia,coverUv(uv,uMediaAspect)).rgb;
   m=mix(m,sRGBTransferEOTF(vec4(m,1.)).rgb,uMediaIsVideo);
@@ -231,14 +227,18 @@ g*=sign(pa);
 vec2 n2=g*prof;
 vec2 nUv=n2/vec2(uFrameAspect,1.);
 // Spectral refraction along the bevel normal, four samples per channel.
-vec3 col=vec3(0.);
-for(int i=0;i<4;i++){
-  float k=1.+float(i)*.07;
-  col.r+=imageAt(vUv-nUv*.06*k).r;
-  col.g+=imageAt(vUv-nUv*.09*k).g;
-  col.b+=imageAt(vUv-nUv*.12*k).b;
+vec3 col;
+if(prof<.0005){ col=imageAt(vUv); }
+else {
+  col=vec3(0.);
+  for(int i=0;i<2;i++){
+    float k=1.+float(i)*.14;
+    col.r+=imageAt(vUv-nUv*.06*k).r;
+    col.g+=imageAt(vUv-nUv*.09*k).g;
+    col.b+=imageAt(vUv-nUv*.12*k).b;
+  }
+  col*=.5;
 }
-col/=4.;
 col*=uDim;
 // Soft edge vignette, as the reference.
 col*=mix(.78,1.,1.-smoothstep(.55,1.15,length(p*vec2(.9,1.))));
@@ -271,11 +271,11 @@ vec3 col=mix(mainCol,serviceCol,step(.9999,uVisibleService));
 // Tight single-pass bloom on the brightest highlights only. Wide, sparse
 // taps drew visible offset copies of the R and CREATE, so radii stay small.
 vec3 bloom=vec3(0.);
-for(int i=0;i<12;i++){
-  float a=float(i)*.5235988+.26; vec2 d=vec2(cos(a)/uAspect.x,sin(a));
+for(int i=0;i<6;i++){
+  float a=float(i)*1.0471976+.26; vec2 d=vec2(cos(a)/uAspect.x,sin(a));
   bloom+=max(sceneAt(uv+d*.0022)-.94,0.)+max(sceneAt(uv+d*.005)-.94,0.)*.6;
 }
-col+=bloom/12.*.65*(1.-step(.9999,uVisibleService));
+col+=bloom/6.*.65*(1.-step(.9999,uVisibleService));
 // Opening burst: a soft ring grows with load progress; inside it the scene
 // zooms out from 2x, and both scene and loader drawing are pushed radially
 // by sin(r*PI), so the push peaks at the ring itself.

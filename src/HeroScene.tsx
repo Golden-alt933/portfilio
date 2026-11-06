@@ -238,9 +238,12 @@ export default function HeroScene({
       readyRef.current(false);
       failureRef.current?.();
     };
-    renderer.setPixelRatio(
-      Math.min(window.devicePixelRatio || 1, window.innerWidth < 700 ? 1.18 : 1.5),
-    );
+    // Render resolution: capped below the screen's density, then scaled by an
+    // adaptive quality factor that drops when frames run slow.
+    let quality = 1;
+    const pixelRatio = (w: number) =>
+      Math.max(0.6, Math.min(window.devicePixelRatio || 1, w < 700 ? 1.1 : 1.25) * quality);
+    renderer.setPixelRatio(pixelRatio(window.innerWidth));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.1;
@@ -810,17 +813,15 @@ export default function HeroScene({
       const rect = holder!.getBoundingClientRect();
       width = Math.max(1, rect.width);
       height = Math.max(1, rect.height);
-      renderer.setPixelRatio(
-        Math.min(window.devicePixelRatio || 1, width < 700 ? 1.18 : 1.5),
-      );
+      renderer.setPixelRatio(pixelRatio(width));
       renderer.setSize(width, height, false);
       camera.aspect = width / height;
       camera.fov = width < 700 ? 52 : 35 + 18 / camera.aspect;
       camera.position.z = width < 700 ? 11.8 : 10.5;
       camera.updateProjectionMatrix();
       backgroundTarget.setSize(
-        Math.max(1, Math.floor(width * Math.min(devicePixelRatio, 1.5))),
-        Math.max(1, Math.floor(height * Math.min(devicePixelRatio, 1.5))),
+        Math.max(1, Math.floor(width * renderer.getPixelRatio())),
+        Math.max(1, Math.floor(height * renderer.getPixelRatio())),
       );
       compositeTarget.setSize(
         Math.max(1, Math.floor(width * renderer.getPixelRatio())),
@@ -872,6 +873,7 @@ export default function HeroScene({
     renderer.domElement.addEventListener("webglcontextlost", lose);
     renderer.domElement.addEventListener("webglcontextrestored", restore);
 
+    const perf = { time: 0, frames: 0, good: 0 };
     const render = (now: number) => {
       frame = requestAnimationFrame(render);
       if (
@@ -882,8 +884,32 @@ export default function HeroScene({
         shaderFailed
       )
         return;
-      const dt = Math.min(0.05, Math.max(0.001, (now - lastTime) / 1000));
+      const rawDt = (now - lastTime) / 1000;
+      const dt = Math.min(0.05, Math.max(0.001, rawDt));
       lastTime = now;
+      // Adaptive quality: average frame time over ~1.5s windows. Slow windows
+      // lower the render resolution a step; three fast ones in a row raise it.
+      if (rawDt > 0 && rawDt < 0.25) {
+        perf.time += rawDt;
+        perf.frames++;
+        if (perf.time >= 1.5) {
+          const average = perf.time / perf.frames;
+          if (average > 1 / 48 && quality > 0.6) {
+            quality = Math.max(0.6, quality - 0.15);
+            perf.good = 0;
+            resize();
+          } else if (average < 1 / 57 && quality < 1) {
+            if (++perf.good >= 3) {
+              quality = Math.min(1, quality + 0.1);
+              perf.good = 0;
+              resize();
+            }
+          } else perf.good = 0;
+          holder!.dataset.quality = quality.toFixed(2);
+          perf.time = 0;
+          perf.frames = 0;
+        }
+      }
       const s = stateRef.current.current;
       const chapter = s.chapter;
       const pointerWeight = Math.max(
@@ -978,7 +1004,7 @@ export default function HeroScene({
       bgMaterial.uniforms.uFluid.value = fluid.velocity.texture;
       bgMaterial.uniforms.uInk.value = fluid.dye.texture;
       bgMaterial.uniforms.uAspect.value = width / height;
-      holder!.dataset.chapter = chapter;
+      if (holder!.dataset.chapter !== chapter) holder!.dataset.chapter = chapter;
       const center = currentProgress * Math.max(0, panels.length - 1);
       const mobile = width < 700;
       const selectedIndex = Math.round(
@@ -1099,10 +1125,10 @@ export default function HeroScene({
         panel.userData.opacity = panelOpacity;
         panel.visible = panelOpacity > 0.005;
       }
-      holder!.dataset.activePanels = String(
-        panels.filter((panel) => panel.visible && panel.userData.opacity > 0.25)
-          .length,
+      const activePanels = String(
+        panels.filter((panel) => panel.visible && panel.userData.opacity > 0.25).length,
       );
+      if (holder!.dataset.activePanels !== activePanels) holder!.dataset.activePanels = activePanels;
 
       const drift = (1 - Math.max(light, portalPulse)) * (1 - contactMix);
       const desiredX = reducedRef.current
@@ -1170,9 +1196,6 @@ export default function HeroScene({
         userRot.y * steady;
       const q = letter.quaternion;
       sceneTweaks.quaternion = [q.x, q.y, q.z, q.w];
-      holder!.dataset.rotationX = motion.rotationX.toFixed(3);
-      holder!.dataset.rotationY = motion.rotationY.toFixed(3);
-      holder!.dataset.reveal = reveal.toFixed(3);
       let targetLetterY =
         (mobile ? 0.55 : 0) - workMix * 0.12 - palePhase * 0.24 + contactMix * 1.3;
       let targetLetterX =
@@ -1300,8 +1323,6 @@ export default function HeroScene({
       }
       contactMat.opacity = 0;
       letter.visible = true;
-      holder!.dataset.depth = rMaterial.uniforms.uDepthScale.value.toFixed(3);
-      holder!.dataset.finale = finaleProgress.toFixed(3);
       renderer.setRenderTarget(compositeTarget);
       renderer.clear(true, true, true);
       renderer.render(scene, camera);

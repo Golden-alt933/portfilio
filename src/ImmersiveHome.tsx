@@ -200,6 +200,28 @@ export default function ImmersiveHome() {
         };
       });
     };
+    // Only touch the DOM when a value changes: rewriting ~40 custom properties
+    // and data attributes every frame made the browser recheck page styles
+    // each frame, even while nothing moved.
+    const written = new WeakMap<object, Map<string, string>>();
+    const cacheFor = (target: object) => {
+      let cache = written.get(target);
+      if (!cache) written.set(target, (cache = new Map()));
+      return cache;
+    };
+    const setVar = (style: CSSStyleDeclaration, name: string, value: string) => {
+      const cache = cacheFor(style);
+      if (cache.get(name) === value) return;
+      cache.set(name, value);
+      style.setProperty(name, value);
+    };
+    const setData = (element: HTMLElement, key: string, value: string) => {
+      const cache = cacheFor(element);
+      const name = `data:${key}`;
+      if (cache.get(name) === value) return;
+      cache.set(name, value);
+      element.dataset[key] = value;
+    };
     const updateState = (scroll = window.scrollY, time = performance.now()) => {
       let index = metrics.findIndex((metric, i) =>
         i === metrics.length - 1
@@ -362,56 +384,55 @@ export default function ImmersiveHome() {
         serviceListIn,
         serviceExit,
       };
-      story.dataset.workVisibility = workVisibility.toFixed(3);
-      story.dataset.lightMix = lightMix.toFixed(3);
-      story.dataset.servicesMix = clamp(servicesMix).toFixed(3);
-      story.dataset.contactMix = contactMix.toFixed(3);
-      story.dataset.portalProgress = portalProgress.toFixed(3);
-      story.dataset.heroExit = sceneState.current.heroExit.toFixed(3);
-      story.dataset.workEntry = workEntry.toFixed(3);
-      story.dataset.workExit = workExit.toFixed(3);
-      story.dataset.paleFlatten = paleFlatten.toFixed(3);
-      story.dataset.portalTravel = portalTravel.toFixed(3);
-      story.dataset.portalReveal = portalReveal.toFixed(3);
-      story.dataset.workMediaProgress = sceneState.current.workMediaProgress.toFixed(3);
-      story.dataset.finaleProgress = finaleProgress.toFixed(3);
-      story.dataset.workProgress = workProgress.toFixed(3);
-      document.body.dataset.introProgress = introReveal.toFixed(3);
-      document.body.dataset.introStage =
-        introReveal >= 1 ? "settled" : "revealing";
+      setData(story, "workVisibility", workVisibility.toFixed(3));
+      setData(story, "lightMix", lightMix.toFixed(3));
+      setData(story, "servicesMix", clamp(servicesMix).toFixed(3));
+      setData(story, "contactMix", contactMix.toFixed(3));
+      setData(story, "portalProgress", portalProgress.toFixed(3));
+      setData(story, "heroExit", sceneState.current.heroExit.toFixed(3));
+      setData(story, "workEntry", workEntry.toFixed(3));
+      setData(story, "workExit", workExit.toFixed(3));
+      setData(story, "paleFlatten", paleFlatten.toFixed(3));
+      setData(story, "portalTravel", portalTravel.toFixed(3));
+      setData(story, "portalReveal", portalReveal.toFixed(3));
+      setData(story, "workMediaProgress", sceneState.current.workMediaProgress.toFixed(3));
+      setData(story, "finaleProgress", finaleProgress.toFixed(3));
+      setData(story, "workProgress", workProgress.toFixed(3));
+      setData(document.body, "introProgress", introReveal.toFixed(3));
+      setData(document.body, "introStage", introReveal >= 1 ? "settled" : "revealing");
       const rootStyle = document.documentElement.style;
-      rootStyle.setProperty(
+      setVar(rootStyle, 
         "--portfolio-hero-r-reveal",
         String(introStage(0.08, 0.45)),
       );
-      rootStyle.setProperty(
+      setVar(rootStyle, 
         "--portfolio-hero-create-reveal",
         String(introStage(0.72, 0.95)),
       );
-      rootStyle.setProperty(
+      setVar(rootStyle, 
         "--portfolio-hero-meta-reveal",
         String(introStage(0.85, 1)),
       );
-      rootStyle.setProperty(
+      setVar(rootStyle, 
         "--portfolio-hero-kicker-reveal",
         String(introStage(0.85, 0.94)),
       );
-      rootStyle.setProperty(
+      setVar(rootStyle, 
         "--portfolio-hero-copy-reveal",
         String(introStage(0.88, 0.98)),
       );
-      rootStyle.setProperty(
+      setVar(rootStyle, 
         "--portfolio-hero-action-reveal",
         String(introStage(0.92, 1)),
       );
-      rootStyle.setProperty(
+      setVar(rootStyle, 
         "--portfolio-hero-scroll-reveal",
         String(introStage(0.95, 1)),
       );
-      missionRef.current!.style.setProperty("--chapter-out", reducedMotion ? "0" : missionOut.toFixed(3));
-      visionRef.current!.style.setProperty("--chapter-out", reducedMotion ? "0" : visionOut.toFixed(3));
+      setVar(missionRef.current!.style, "--chapter-out", reducedMotion ? "0" : missionOut.toFixed(3));
+      setVar(visionRef.current!.style, "--chapter-out", reducedMotion ? "0" : visionOut.toFixed(3));
       sections.forEach((section, i) =>
-        section!.style.setProperty(
+        setVar(section!.style, 
           "--chapter-progress",
           String(
             reducedMotion
@@ -423,34 +444,34 @@ export default function ImmersiveHome() {
           ),
         ),
       );
-      story.style.setProperty(
+      setVar(story.style, 
         "--work-visibility",
         String(reducedMotion ? 1 : workVisibility),
       );
-      story.style.setProperty(
+      setVar(story.style, 
         "--scene-light-mix",
         String(reducedMotion ? 0 : lightMix),
       );
-      story.style.setProperty(
+      setVar(story.style, 
         "--scene-services-mix",
         String(reducedMotion ? 0 : servicesMix),
       );
-      story.style.setProperty(
+      setVar(story.style, 
         "--scene-contact-mix",
         String(reducedMotion ? 0 : contactMix),
       );
-      story.style.setProperty("--hero-exit", String(sceneState.current.heroExit));
-      story.style.setProperty("--work-entry", String(workEntry));
-      story.style.setProperty("--work-exit", String(workExit));
-      story.style.setProperty("--pale-flatten", String(paleFlatten));
-      story.style.setProperty("--portal-travel", String(portalTravel));
-      story.style.setProperty("--portal-reveal", String(portalReveal));
-      story.style.setProperty(
+      setVar(story.style, "--hero-exit", String(sceneState.current.heroExit));
+      setVar(story.style, "--work-entry", String(workEntry));
+      setVar(story.style, "--work-exit", String(workExit));
+      setVar(story.style, "--pale-flatten", String(paleFlatten));
+      setVar(story.style, "--portal-travel", String(portalTravel));
+      setVar(story.style, "--portal-reveal", String(portalReveal));
+      setVar(story.style, 
         "--work-media-progress",
         String(sceneState.current.workMediaProgress),
       );
-      story.style.setProperty("--finale-progress", String(finaleProgress));
-      story.style.setProperty("--works-title", String(worksTitle));
+      setVar(story.style, "--finale-progress", String(finaleProgress));
+      setVar(story.style, "--works-title", String(worksTitle));
       // Each service chapter holds fully visible across most of its third and
       // crossfades at the boundaries; the first and last hold at the ends.
       const servicePosition = servicesProgress * services.length;
@@ -464,39 +485,39 @@ export default function ImmersiveHome() {
         const visibility = reducedMotion
           ? 1
           : smooth(1 - (held - 0.36) / 0.12);
-        story.style.setProperty(`--service-${i}`, visibility.toFixed(3));
-        story.style.setProperty(
+        setVar(story.style, `--service-${i}`, visibility.toFixed(3));
+        setVar(story.style, 
           `--service-${i}-offset`,
           (reducedMotion ? 0 : Math.max(-1, Math.min(1, offset))).toFixed(3),
         );
       });
-      story.style.setProperty(
+      setVar(story.style, 
         "--service-progress",
         servicesProgress.toFixed(3),
       );
       // Copy fades while the last service screen wipes out to full frame.
-      story.style.setProperty("--service-exit", serviceExit.toFixed(3));
+      setVar(story.style, "--service-exit", serviceExit.toFixed(3));
       // Frame closes in over the first third of the exit, once the last
       // video is fully on screen.
-      story.style.setProperty(
+      setVar(story.style, 
         "--service-frame",
         (reducedMotion ? 1 : serviceFrame).toFixed(3),
       );
-      story.style.setProperty(
+      setVar(story.style, 
         "--service-end",
         (reducedMotion ? 0 : smooth((servicesProgress - 0.7) / 0.06)).toFixed(3),
       );
       // Last service: its description rises in only once the screen is full
       // frame, and leaves as the frame starts closing.
-      story.style.setProperty(
+      setVar(story.style, 
         "--service-last-copy",
         (reducedMotion
           ? 1
           : smooth((servicesProgress - 0.84) / 0.06) * (1 - smooth(serviceExit / 0.12))
         ).toFixed(3),
       );
-      document.body.dataset.sceneChapter = chapter;
-      document.body.style.setProperty("--scene-light-mix", String(lightMix));
+      setData(document.body, "sceneChapter", chapter);
+      setVar(document.body.style, "--scene-light-mix", String(lightMix));
       paletteTimeline?.progress(lightMix);
     };
     const refresh = () => {
