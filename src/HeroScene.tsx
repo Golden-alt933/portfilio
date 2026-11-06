@@ -592,7 +592,8 @@ export default function HeroScene({
       const pos = geo.attributes.position as THREE.BufferAttribute;
       for (let j = 0; j < pos.count; j++) {
         const x = pos.getX(j);
-        pos.setZ(j, -0.18 * Math.cos((x / 5.5) * Math.PI));
+        // Bowed outward (centre toward the viewer), as the reference's cards.
+        pos.setZ(j, 0.3 * Math.cos((x / 5.5) * Math.PI));
       }
       geo.computeVertexNormals();
       const mat = new THREE.ShaderMaterial({

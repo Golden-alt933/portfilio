@@ -355,6 +355,10 @@ lp.x*=1.4;
 #endif
 float theta=lp.x*PI+(1.-uServiceIn)*8.;
 vec3 p=vec3(lp.x*uScale.x,lp.y*uScale.y,-sin(theta)*uWave*uServiceIn);
+#ifdef IS_THUMB
+// Each screen bows outward (centre toward the viewer), as the reference.
+p.z+=uScale.x*.1*(1.-4.*position.x*position.x)*uServiceIn;
+#endif
 #ifndef IS_THUMB
 p.y*=1.7;
 #endif
