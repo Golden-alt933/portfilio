@@ -225,14 +225,20 @@ vec3 N=normalize((viewMatrix*vec4(Nw,0.)).xyz);
 vec3 V=normalize((viewMatrix*vec4(cameraPosition-vWorld,0.)).xyz);
 vec2 screen=gl_FragCoord.xy/uResolution;
 vec2 vel=texture2D(uFluid,screen).rg;
-// Rough patches from a domain-warped noise field on the letter.
+// Frost, after the reference: a fine noise warps a broad one and the result
+// marks where the samples scatter. The broad field is stretched along a
+// diagonal so the patches run as long streaks, its threshold leaves most of
+// the letter frosted with a few clear channels, and both layers drift very
+// slowly so the streaks creep across the glass.
 vec3 q=vLocal*uNoiseScale*.11;
-float n1=vnoise(q), n1b=vnoise(q+vec3(4.7,1.3,8.9));
-float n2=vnoise(q*.12+vec3(n1-.5,n1b-.5,0.)*2.);
-// A second patch over the top right of the bowl, its edge wobbled by the
-// same noise so it reads as part of the field rather than a disc.
+float ft=uTime*.025;
+float n1=vnoise(q+vec3(ft,0.,0.)), n1b=vnoise(q+vec3(4.7,1.3-ft*.8,8.9));
+vec2 sd=vec2(.86,.5);
+vec2 sp=vec2(dot(vLocal.xy,sd),dot(vLocal.xy,vec2(-sd.y,sd.x)));
+float n2=vnoise(vec3(sp.x*.26+ft*1.4,sp.y*1.35,vLocal.z*.4+3.)+vec3(n1-.5,n1b-.5,0.)*.9);
+// The top right of the bowl stays frosted, its edge wobbled by the same noise.
 float tr=length((vLocal.xy-vec2(.8,1.5))*vec2(.8,1.15))+(n1-.5)*.7+(n1b-.5)*.35;
-float rough=max(smoothstep(.3,.8,n2),1.-smoothstep(.45,1.15,tr))*uRoughness;
+float rough=max(smoothstep(.36,.6,n2),1.-smoothstep(.45,1.15,tr))*uRoughness;
 vec2 rn=N.xy*(1.-N.z*.7);
 float power=.1;
 vec3 acc=vec3(0.);
