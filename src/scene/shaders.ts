@@ -198,35 +198,62 @@ gl_FragColor=vec4(c,uOpacity*.85);
 
 export const panelVertex = fullscreenVertex;
 
-/** Work card as a clear glass screen: the image stays sharp, colour only
- *  splits right at the edges, a diagonal sheen and top gloss sit on the
- *  surface, and a thin bright rim with a soft halo makes it glow. */
+/** Work card as a thick glass slab, after the reference's thumbnail shader:
+ *  a rounded bevel runs round the edge (simulated from the card's rounded-
+ *  rectangle distance), and the image is refracted along that bevel's normal
+ *  with four spectral samples per colour channel, so the rim bends the image
+ *  and splits into rainbow fringes while the middle stays sharp. A thin
+ *  Fresnel reflection, a specular glint on the bevel and a soft edge
+ *  vignette finish it. */
 export const panelFragment = `precision highp float; varying vec2 vUv; uniform sampler2D uMap,uMedia; uniform float uOpacity,uMediaMix,uMediaIsVideo,uMediaAspect,uMapAspect,uFrameAspect,uDim;
 vec2 coverUv(vec2 uv,float aspect){ vec2 p=uv-.5; if(aspect>uFrameAspect){p.x*=uFrameAspect/aspect;} else {p.y*=aspect/uFrameAspect;} return clamp(p+.5,vec2(.002),vec2(.998)); }
+vec3 imageAt(vec2 uv){
+  vec3 a=texture2D(uMap,coverUv(uv,uMapAspect)).rgb;
+  vec3 m=texture2D(uMedia,coverUv(uv,uMediaAspect)).rgb;
+  m=mix(m,sRGBTransferEOTF(vec4(m,1.)).rgb,uMediaIsVideo);
+  return mix(a,m,clamp(uMediaMix,0.,1.));
+}
 void main(){
-vec2 p=(vUv-.5)*2.; float r=dot(p,p);
-vec2 uv=vUv+p*r*.004;
-vec2 d=p*r*.0035;
-vec3 col=vec3(texture2D(uMap,coverUv(uv+d,uMapAspect)).r,texture2D(uMap,coverUv(uv,uMapAspect)).g,texture2D(uMap,coverUv(uv-d,uMapAspect)).b);
-vec3 media=vec3(texture2D(uMedia,coverUv(uv+d,uMediaAspect)).r,texture2D(uMedia,coverUv(uv,uMediaAspect)).g,texture2D(uMedia,coverUv(uv-d,uMediaAspect)).b);
-media=mix(media,sRGBTransferEOTF(vec4(media,1.)).rgb,uMediaIsVideo);
-col=mix(col,media,clamp(uMediaMix,0.,1.));
+vec2 p=(vUv-.5)*2.;
+vec2 pa=p*vec2(uFrameAspect,1.);
+vec2 halfS=vec2(uFrameAspect,1.)*.965;
+float rad=.1;
+vec2 q=abs(pa)-halfS+rad;
+float sd=length(max(q,0.))+min(max(q.x,q.y),0.)-rad;
+float aa=fwidth(sd)*1.2;
+float mask=1.-smoothstep(-aa,aa,sd);
+// Bevel: 0 in the flat middle, rising to 1 at the rim with a rounded profile.
+float bevelW=.24;
+float b=clamp(1.+sd/bevelW,0.,1.);
+float prof=1.-sqrt(max(0.,1.-b*b));
+vec2 g=(q.x>0.&&q.y>0.)?normalize(q):(q.x>q.y?vec2(1.,0.):vec2(0.,1.));
+g*=sign(pa);
+vec2 n2=g*prof;
+vec2 nUv=n2/vec2(uFrameAspect,1.);
+// Spectral refraction along the bevel normal, four samples per channel.
+vec3 col=vec3(0.);
+for(int i=0;i<4;i++){
+  float k=1.+float(i)*.07;
+  col.r+=imageAt(vUv-nUv*.06*k).r;
+  col.g+=imageAt(vUv-nUv*.09*k).g;
+  col.b+=imageAt(vUv-nUv*.12*k).b;
+}
+col/=4.;
 col*=uDim;
-col*=mix(.9,1.,1.-smoothstep(.85,1.25,length(p)));
-vec2 q=abs(p)-vec2(.915,.865); float rr=length(max(q,0.))+min(max(q.x,q.y),0.)-.045;
-float mask=1.-smoothstep(-.006,.006,rr);
-// Glass surface: soft diagonal sheen and a gloss along the top.
-float band=vUv.x*.9+vUv.y;
-col+=vec3(.92,.96,1.)*(smoothstep(.22,0.,abs(band-1.25))*.07+smoothstep(.08,0.,abs(band-1.52))*.05);
-col+=vec3(.85,.92,1.)*smoothstep(.62,1.,vUv.y)*.05;
-// Thin bright rim and a soft inner glow along the edge.
-float rim=1.-smoothstep(0.,.018,abs(rr));
-float inner=(1.-smoothstep(0.,.16,-rr))*mask;
-col+=vec3(.78,.9,1.)*rim*.55+vec3(.45,.65,1.)*inner*.1;
-// Halo just outside the glass.
-float halo=(1.-smoothstep(0.,.05,rr))*step(0.,rr);
-vec3 outCol=mix(vec3(.6,.78,1.),col,mask);
-gl_FragColor=vec4(outCol,uOpacity*max(mask,halo*.35));}`;
+// Soft edge vignette, as the reference.
+col*=mix(.78,1.,1.-smoothstep(.55,1.15,length(p*vec2(.9,1.))));
+col*=1.-prof*.18;
+// Thin Fresnel reflection and a cool sheen across the face.
+float fres=pow(prof,2.);
+vec3 sky=mix(vec3(.18,.22,.3),vec3(.85,.9,1.),clamp(.5+.5*(n2.y*.8+vUv.y*.4),0.,1.));
+col=mix(col,sky,fres*.35);
+col+=vec3(.9,.95,1.)*smoothstep(.3,0.,abs(vUv.x*.7+vUv.y-1.2))*.035;
+// Rainbow fringe and a specular glint riding the bevel.
+vec3 film=.5+.5*cos(6.2831*(b*.9+atan(g.y,g.x)*.08+vec3(0.,.33,.67)));
+col+=film*pow(b,2.5)*.22;
+float glint=pow(max(dot(normalize(g+vec2(1e-4)),normalize(vec2(-.55,.85))),0.),6.)*smoothstep(.5,.95,b);
+col+=vec3(1.)*glint*.35;
+gl_FragColor=vec4(col,uOpacity*mask);}`;
 
 /** Final full-frame lens pass carries the reveal/portal ripple over cards and background together. */
 export const compositeFragment = `precision highp float; varying vec2 vUv;
