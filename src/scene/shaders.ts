@@ -229,7 +229,10 @@ vec2 vel=texture2D(uFluid,screen).rg;
 vec3 q=vLocal*uNoiseScale*.11;
 float n1=vnoise(q), n1b=vnoise(q+vec3(4.7,1.3,8.9));
 float n2=vnoise(q*.12+vec3(n1-.5,n1b-.5,0.)*2.);
-float rough=smoothstep(.3,.8,n2)*uRoughness;
+// A second patch over the top right of the bowl, its edge wobbled by the
+// same noise so it reads as part of the field rather than a disc.
+float tr=length((vLocal.xy-vec2(.8,1.5))*vec2(.8,1.15))+(n1-.5)*.7+(n1b-.5)*.35;
+float rough=max(smoothstep(.3,.8,n2),1.-smoothstep(.45,1.15,tr))*uRoughness;
 vec2 rn=N.xy*(1.-N.z*.7);
 float power=.1;
 vec3 acc=vec3(0.);
