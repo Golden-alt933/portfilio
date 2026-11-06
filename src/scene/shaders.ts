@@ -225,11 +225,14 @@ vec3 N=normalize((viewMatrix*vec4(Nw,0.)).xyz);
 vec3 V=normalize((viewMatrix*vec4(cameraPosition-vWorld,0.)).xyz);
 vec2 screen=gl_FragCoord.xy/uResolution;
 vec2 vel=texture2D(uFluid,screen).rg;
-// Rough patches from a domain-warped noise field on the letter.
+// Frost over the whole letter: every part gets a base scatter, and a
+// domain-warped noise field (several patches across the R, so no region is
+// left clear) adds denser ones on top.
 vec3 q=vLocal*uNoiseScale*.11;
 float n1=vnoise(q), n1b=vnoise(q+vec3(4.7,1.3,8.9));
-float n2=vnoise(q*.12+vec3(n1-.5,n1b-.5,0.)*2.);
-float rough=smoothstep(.3,.8,n2)*uRoughness;
+float n2=vnoise(q*.55+vec3(n1-.5,n1b-.5,0.)*1.2+vec3(3.1,7.7,1.9));
+float frost=smoothstep(.25,.75,n2);
+float rough=mix(.7,1.15,frost)*uRoughness;
 vec2 rn=N.xy*(1.-N.z*.7);
 float power=.1;
 vec3 acc=vec3(0.);
@@ -244,7 +247,7 @@ for(int i=0;i<8;i++){
 }
 vec3 c=acc/8.;
 vec3 L=normalize(vec3(-1.,.8,-1.)); vec3 H=normalize(V+L);
-c+=vec3(min(ggx(dot(N,H),.003+rough*.4),40.));
+c+=vec3(min(ggx(dot(N,H),.003+frost*uRoughness*.4),40.));
 float F=.1+.9*pow(1.-clamp(dot(V,N),0.,1.),5.);
 vec3 env=studio(reflect(-V,N));
 c+=mix(c,env,F*.9)*(1.-F);
