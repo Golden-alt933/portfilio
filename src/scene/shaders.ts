@@ -132,14 +132,15 @@ gl_FragColor=vec4(col,1.); }`;
 
 export const refractionFragment = `precision highp float; varying vec2 vUv; varying vec3 vNormal,vWorld,vLocal;
 uniform sampler2D uScene,uFluid,uInk; uniform samplerCube uEnv; uniform vec2 uResolution; uniform vec3 uIorRGB;
-uniform float uTime,uLight,uReveal,uServices,uContact,uRoughness,uNoiseScale,uRipple; uniform vec3 uTint;
+uniform float uTime,uLight,uReveal,uServices,uContact,uRoughness,uNoiseScale,uRipple; uniform vec3 uTint; uniform mat3 uLetterRot;
 vec3 sceneAt(vec2 uv){ return texture2D(uScene,clamp(uv,vec2(.002),vec2(.998))).rgb; }
 float lum(vec3 c){ return dot(c,vec3(.299,.587,.114)); }
-float hash3(vec3 p){ return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453); }
+// Sine-free hash: no visible grid or banding in the noise.
+float hash3(vec3 p){ p=fract(p*.1031); p+=dot(p,p.zyx+31.32); return fract((p.x+p.y)*p.z); }
 float vnoise(vec3 p){ vec3 i=floor(p),f=fract(p); f=f*f*(3.-2.*f);
   return mix(mix(mix(hash3(i),hash3(i+vec3(1,0,0)),f.x),mix(hash3(i+vec3(0,1,0)),hash3(i+vec3(1,1,0)),f.x),f.y),
              mix(mix(hash3(i+vec3(0,0,1)),hash3(i+vec3(1,0,1)),f.x),mix(hash3(i+vec3(0,1,1)),hash3(i+vec3(1,1,1)),f.x),f.y),f.z); }
-float fbm(vec3 p){ float a=.5,s=0.; for(int i=0;i<4;i++){ s+=a*vnoise(p); p=p*2.07+vec3(1.7,9.2,4.3); a*=.5; } return s; }
+float fbm(vec3 p){ float a=.5,s=0.; for(int i=0;i<3;i++){ s+=a*vnoise(p); p=p*2.07+vec3(1.7,9.2,4.3); a*=.5; } return s; }
 // Monochrome studio for reflections: soft white key above, black below.
 float studio(vec3 d){ return smoothstep(-.2,.9,d.y)*.85+pow(max(dot(d,normalize(vec3(-.6,.5,.7))),0.),24.)*1.6; }
 vec2 toScreen(vec3 d){ vec4 v=viewMatrix*vec4(d,0.); return v.xy; }
@@ -158,19 +159,21 @@ void main(){
 vec3 N=normalize(vNormal); if(!gl_FrontFacing) N=-N;
 vec3 V=normalize(cameraPosition-vWorld); vec3 I=-V;
 vec2 screen=gl_FragCoord.xy/uResolution; vec2 vel=texture2D(uFluid,screen).rg;
-// 1. Displacement-style bump.
-vec3 hp=vLocal*uNoiseScale*.15+vec3(0.,0.,uTime*.02);
+// 1. Displacement-style bump, computed per pixel: the height field's
+// gradient is taken in the letter's own space and rotated to world space,
+// so the dents are smooth (no 2x2 pixel blocks) and turn with the letter.
+float k=uNoiseScale*.15;
+vec3 hp=vLocal*k+vec3(0.,0.,uTime*.02);
+float e=.03;
 float h=fbm(hp);
-vec3 dpx=dFdx(vWorld), dpy=dFdy(vWorld);
-float dhx=dFdx(h), dhy=dFdy(h);
-vec3 r1=cross(dpy,N), r2=cross(N,dpx); float det=dot(dpx,r1);
-vec3 grad=sign(det)*(dhx*r1+dhy*r2);
-float bump=.14+uRoughness*.9;
-N=normalize(abs(det)*N-grad*bump);
+vec3 gObj=vec3(fbm(hp+vec3(e,0.,0.))-h,fbm(hp+vec3(0.,e,0.))-h,fbm(hp+vec3(0.,0.,e))-h)/e*k;
+vec3 gW=uLetterRot*gObj;
+float bump=.05+uRoughness*.35;
+N=normalize(N-(gW-dot(gW,N)*N)*bump);
 float ndv=clamp(dot(N,V),0.,1.); float edge=1.-ndv;
 // 2. Ray-marched, per-channel refraction.
-float thick=.14+.32*pow(edge,1.5);
-float spread=(uIorRGB.r-uIorRGB.b)*2.2*(1.+edge*2.5);
+float thick=.2+.42*pow(edge,1.5);
+float spread=(uIorRGB.r-uIorRGB.b)*3.*(1.+edge*2.5);
 vec3 tR=refract(I,N,1./(1.47-spread)), tG=refract(I,N,1./1.47), tB=refract(I,N,1./(1.47+spread));
 vec2 base=toScreen(I);
 vec2 oR=(toScreen(tR)-base)*thick, oG=(toScreen(tG)-base)*thick, oB=(toScreen(tB)-base)*thick;
@@ -186,8 +189,9 @@ for(int i=0;i<5;i++){
 }
 vec3 refr=acc/wsum;
 // 3. Stark contrast, slightly cooler where the glass is thick.
-refr=smoothstep(vec3(.02),vec3(.85),refr);
-refr=refr*mix(.95,1.1,edge)+.035;
+refr=smoothstep(vec3(.1),vec3(.72),refr);
+refr=refr*refr*(3.-2.*refr);
+refr=refr*mix(.95,1.1,edge)+.012;
 // Fresnel reflection, white glints and a crisp bright line on the bevels.
 float F=.04+.96*pow(edge,4.);
 vec3 R=reflect(I,N);
@@ -195,6 +199,9 @@ vec3 color=mix(refr,vec3(studio(R)),F*.9);
 vec3 L=normalize(vec3(-1.,.8,1.)); vec3 H=normalize(L+V);
 float a2=.0016; float ndh=max(dot(N,H),0.); float dd=ndh*ndh*(a2-1.)+1.;
 color+=vec3(min(a2/(3.14159*dd*dd),30.)*.03);
+// Broader second light catches the dents as soft glints across the face.
+vec3 L2=normalize(vec3(.8,.4,1.)); vec3 H2=normalize(L2+V); float b2=.02; float nh2=max(dot(N,H2),0.); float d2=nh2*nh2*(b2-1.)+1.;
+color+=vec3(min(b2/(3.14159*d2*d2),12.)*.025);
 color+=vec3(smoothstep(.55,.9,edge)*(1.-smoothstep(.9,1.,edge))*.18);
 color*=uTint;
 float contour=step(.58,fract((vUv.x+vUv.y)*42.)); vec3 light=vec3(.17,.78,.73); color=mix(color,light,.38*uLight*contour); color=mix(color,vec3(.84,.98,.95),uLight*.14);

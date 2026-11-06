@@ -242,7 +242,7 @@ export default function HeroScene({
     // adaptive quality factor that drops when frames run slow.
     let quality = 1;
     const pixelRatio = (w: number) =>
-      Math.max(0.6, Math.min(window.devicePixelRatio || 1, w < 700 ? 1.1 : 1.25) * quality);
+      Math.max(0.85, Math.min(window.devicePixelRatio || 1, w < 700 ? 1.1 : 1.25) * quality);
     renderer.setPixelRatio(pixelRatio(window.innerWidth));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -441,6 +441,7 @@ export default function HeroScene({
         uHalfDepth: { value: 0.3 },
         uHalfHeight: { value: 2.1 },
         uRipple: { value: 0 },
+        uLetterRot: { value: new THREE.Matrix3() },
       },
       vertexShader: refractionVertex,
       fragmentShader: refractionFragment,
@@ -894,8 +895,8 @@ export default function HeroScene({
         perf.frames++;
         if (perf.time >= 1.5) {
           const average = perf.time / perf.frames;
-          if (average > 1 / 48 && quality > 0.6) {
-            quality = Math.max(0.6, quality - 0.15);
+          if (average > 1 / 40 && quality > 0.8) {
+            quality = Math.max(0.8, quality - 0.1);
             perf.good = 0;
             resize();
           } else if (average < 1 / 57 && quality < 1) {
@@ -1236,6 +1237,10 @@ export default function HeroScene({
       rMaterial.uniforms.uFluid.value = fluid.velocity.texture;
       rMaterial.uniforms.uInk.value = fluid.dye.texture;
       rMaterial.uniforms.uTime.value = now * 0.001;
+      // Object-to-world rotation, so the surface bump is computed per pixel
+      // in the letter's own space and turned with it.
+      letter.updateMatrixWorld();
+      (rMaterial.uniforms.uLetterRot.value as THREE.Matrix3).setFromMatrix4(letter.matrixWorld);
       rMaterial.uniforms.uRoughness.value = sceneTweaks.roughness;
       rMaterial.uniforms.uNoiseScale.value = sceneTweaks.noiseScale;
       rMaterial.uniforms.uIorRGB.value.set(
