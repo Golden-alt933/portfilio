@@ -42,7 +42,26 @@ export const profile = {
   githubUrl: "",
   showreelUrl: "",
   showreelPoster: "",
+  /** Where contact-form messages are delivered. */
+  contactEmail: "raghavgupta1017@gmail.com",
 };
+
+/**
+ * The contact form posts here (FormSubmit, no backend needed). FormSubmit
+ * sends a one-time activation email to `profile.contactEmail` on the very
+ * first submission; it must be confirmed before any messages arrive.
+ * To use a different inbox, change `profile.contactEmail` above.
+ */
+export const contactEndpoint = `https://formsubmit.co/ajax/${profile.contactEmail}`;
+
+/** Topics a visitor can pick on the contact form. */
+export const contactTopics = [
+  "Video editing",
+  "Creative development",
+  "Both",
+  "Hiring",
+  "Something else",
+];
 /** Services chapters on the home page. `project` picks a visual by slug. */
 export const services = [
   {

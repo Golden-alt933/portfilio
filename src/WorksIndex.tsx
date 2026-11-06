@@ -68,7 +68,7 @@ export default function WorksIndex() {
           ))}
         </div>
         <div className="immersive-index-bottom">
-          <Link to="/#contact" className="immersive-text-link">
+          <Link to="/contact" className="immersive-text-link">
             HAVE A PROJECT IN MIND? <ArrowRight size={14} />
           </Link>
         </div>

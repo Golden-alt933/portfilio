@@ -1044,17 +1044,10 @@ export default function ImmersiveHome() {
               <br />
               <i>Let's make it.</i>
             </h2>
-            {profile.email ? (
-              <a
-                href={`mailto:${profile.email}`}
-                className="immersive-contact-link"
-              >
-                <Mail size={18} /> {profile.email}
-                <ArrowRight size={17} />
-              </a>
-            ) : (
-              <p className="immersive-mono">OPEN TO THE RIGHT PROJECT</p>
-            )}
+            <Link to="/contact" className="immersive-contact-link">
+              <Mail size={18} /> START A CONVERSATION
+              <ArrowRight size={17} />
+            </Link>
           </div>
           <footer className="immersive-finale-footer">
             <nav aria-label="Footer">
@@ -1066,7 +1059,7 @@ export default function ImmersiveHome() {
               <div>
                 <a href="#services">Services</a>
                 <Link to="/works">All works</Link>
-                <a href="#contact">Contact</a>
+                <Link to="/contact">Contact</Link>
               </div>
               {(profile.instagramUrl || profile.githubUrl) && (
                 <div className="immersive-finale-links immersive-mono">

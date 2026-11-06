@@ -154,7 +154,7 @@ export default function ProjectPage() {
           stagger={0.015}
         />
         <RiseBlock className="case-ctas" delay={0.35}>
-          <Link className="case-cta solid" to="/#contact">
+          <Link className="case-cta solid" to="/contact">
             Start a project <ArrowRight size={14} />
           </Link>
           <Link className="case-cta" to="/works">

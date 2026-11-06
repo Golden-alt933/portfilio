@@ -94,7 +94,7 @@ export default function PortfolioShell({ children }: { children: ReactNode }) {
           <Link to="/works">
             <ScrambleText text="Index" />
           </Link>
-          <Link to="/#contact" className="contact-link">
+          <Link to="/contact" className="contact-link">
             <SlotLabel text="Contact / Collaborate" />
           </Link>
           <div className="menu-disciplines">
@@ -135,7 +135,7 @@ export default function PortfolioShell({ children }: { children: ReactNode }) {
           <Link to="/#about">
             <ScrambleText text="About" />
           </Link>
-          <Link to="/#contact">
+          <Link to="/contact">
             <ScrambleText text="Contact" />
           </Link>
         </div>
