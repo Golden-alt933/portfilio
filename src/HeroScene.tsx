@@ -170,6 +170,9 @@ function makeCanvasTexture(canvas: HTMLCanvasElement) {
 }
 
 const CREATE_SCALE = 0.8;
+/** Services progress over which the last screen wipes to full frame. */
+const LAST_FULL_START = 0.72;
+const LAST_FULL_END = 0.82;
 
 export default function HeroScene({
   state,
@@ -1287,7 +1290,8 @@ export default function HeroScene({
           time: now * 0.001,
           serviceIn: Math.max(serviceTurn.list, serviceScreenIn * 0.35),
           scroll: serviceTurn.scroll,
-          full: THREE.MathUtils.smoothstep(servicesProgress, 0.9, 0.985),
+          // The last screen wipes to full frame as it slides in, without a hold.
+          full: THREE.MathUtils.smoothstep(servicesProgress, LAST_FULL_START, LAST_FULL_END),
           opacity: 1,
           media,
         });

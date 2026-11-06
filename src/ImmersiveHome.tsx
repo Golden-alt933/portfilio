@@ -484,7 +484,16 @@ export default function ImmersiveHome() {
       );
       story.style.setProperty(
         "--service-end",
-        (reducedMotion ? 0 : smooth((servicesProgress - 0.9) / 0.07)).toFixed(3),
+        (reducedMotion ? 0 : smooth((servicesProgress - 0.7) / 0.06)).toFixed(3),
+      );
+      // Last service: its description rises in only once the screen is full
+      // frame, and leaves as the frame starts closing.
+      story.style.setProperty(
+        "--service-last-copy",
+        (reducedMotion
+          ? 1
+          : smooth((servicesProgress - 0.84) / 0.06) * (1 - smooth(serviceExit / 0.12))
+        ).toFixed(3),
       );
       document.body.dataset.sceneChapter = chapter;
       document.body.style.setProperty("--scene-light-mix", String(lightMix));

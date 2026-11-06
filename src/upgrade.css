@@ -822,3 +822,36 @@ html:has(.works-index-page) {
     transform: translateY(calc((1 - var(--service-visibility)) * 28px));
   }
 }
+
+/* ---------- Last service ----------
+   The screen goes straight to full frame; its description then rises in
+   over the video, on a soft shade so it reads on any footage. */
+.service-chapter:last-of-type .service-copy {
+  opacity: var(--service-last-copy, 0);
+  transform: translateY(calc(-50% + (1 - var(--service-last-copy, 0)) * 40px));
+}
+.service-chapter:last-of-type::before {
+  content: "";
+  position: absolute;
+  z-index: 2;
+  inset: 0 0 0 45%;
+  background: linear-gradient(90deg, transparent, #000d 50%);
+  opacity: var(--service-last-copy, 0);
+  pointer-events: none;
+}
+.immersive-home.is-static .service-chapter:last-of-type .service-copy {
+  opacity: 1;
+  transform: translateY(-50%);
+}
+.immersive-home.is-static .service-chapter:last-of-type::before {
+  display: none;
+}
+@media (max-width: 900px) {
+  .service-chapter:last-of-type .service-copy {
+    transform: translateY(calc((1 - var(--service-last-copy, 0)) * 30px));
+  }
+  .service-chapter:last-of-type::before {
+    inset: 40% 0 0 0;
+    background: linear-gradient(180deg, transparent, #000b 45%);
+  }
+}
