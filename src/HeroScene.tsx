@@ -13,6 +13,13 @@ import { drawLoaderImage } from "./scene/loaderImage";
 import { ServiceScene, type ServiceMedia } from "./scene/serviceScene";
 import { services as serviceList } from "./content";
 import {
+  makeWallTexture,
+  paintWallGlyphs,
+  paintWallMarquee,
+  WallDirector,
+  wallUniforms,
+} from "./scene/wallFx";
+import {
   backgroundFragment,
   compositeFragment,
   fullscreenVertex,
@@ -331,8 +338,27 @@ export default function HeroScene({
     );
 
     const bgGeometry = new THREE.PlaneGeometry(2, 2);
+    const wallU = wallUniforms();
+    const wallDirector = new WallDirector(wallU);
+    const glyphCanvas = document.createElement("canvas");
+    const marqueeCanvas = document.createElement("canvas");
+    paintWallGlyphs(glyphCanvas);
+    paintWallMarquee(marqueeCanvas);
+    const glyphTexture = makeWallTexture(glyphCanvas, false);
+    const marqueeTexture = makeWallTexture(marqueeCanvas, true);
+    document.fonts?.ready
+      .then(() => {
+        paintWallGlyphs(glyphCanvas);
+        paintWallMarquee(marqueeCanvas);
+        glyphTexture.needsUpdate = true;
+        marqueeTexture.needsUpdate = true;
+      })
+      .catch(() => undefined);
     const bgMaterial = new THREE.ShaderMaterial({
       uniforms: {
+        ...wallU,
+        uGlyphs: { value: glyphTexture },
+        uMarquee: { value: marqueeTexture },
         uTime: { value: 0 },
         uFlatten: { value: 0 },
         uFluid: { value: fluid.velocity.texture },
@@ -1003,6 +1029,7 @@ export default function HeroScene({
       const portalPulse = 0;
       const cameraApproach = Math.max(0, cameraDive - portalTravel * 1.8);
       bgMaterial.uniforms.uTime.value = now * 0.001;
+      wallDirector.update(now * 0.001, dt, reducedRef.current);
       bgMaterial.uniforms.uLight.value = light;
       // The curved wall unrolls flat together with the R's extrusion.
       bgMaterial.uniforms.uFlatten.value = THREE.MathUtils.smoothstep(palePhase, 0.05, 0.85);
@@ -1415,6 +1442,8 @@ export default function HeroScene({
       typeMat.dispose();
       createTexture.dispose();
       worksTexture.dispose();
+      glyphTexture.dispose();
+      marqueeTexture.dispose();
       loaderTexture.dispose();
       rGeometry.dispose();
       rMaterial.dispose();

@@ -5,31 +5,79 @@ export const refractionVertex = `uniform float uDepthScale,uRipple,uTime,uMorph,
 
 export const backgroundFragment = `precision highp float; varying vec2 vUv;
 uniform float uTime,uFlatten,uLight,uContact,uReveal,uServices,uAspect,uPortalReveal,uPortalIsVideo,uPortalAspect,uWorks,uWorksX,uWorksY,uWorkMedia,uScroll;
-uniform sampler2D uFluid,uInk,uPortalMedia,uWorksMap;
+uniform sampler2D uFluid,uInk,uPortalMedia,uWorksMap,uGlyphs,uMarquee;
+uniform float uPatCur,uPatNext,uPatSel,uPatType,uBlackOut,uBlackHash,uShift,uShiftPower,uShiftHash,uGlyphMode;
 float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
 float noise(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.-2.*f); return mix(mix(hash(i),hash(i+vec2(1.,0.)),f.x),mix(hash(i+vec2(0.,1.)),hash(i+vec2(1.,1.)),f.x),f.y); }
-// Three panel looks after the reference's pattern set: thresholded blue/lilac
-// channel noise, high-contrast stripes from fract(n*9), and violet/cyan/orange.
-// Domain-warped animated noise stands in for its 64x64 simplex texture.
-vec3 panelPattern(float mode,vec2 p,float seed){
-  float t=uTime*.1;
-  vec2 q=p*2.4+seed*7.3;
+// Value noise bunches round .5; stretch it so thresholds land like a texture's.
+float st(float n){ return clamp((n-.5)*1.7+.5,0.,1.); }
+// An edit timeline: video tracks of clips with frame thumbnails, audio tracks
+// with waveforms, all sliding under a white playhead.
+vec3 timelinePattern(vec2 p){
+  float y=p.y*9.; float k=floor(y); float fy=fract(y);
+  float len=.55+hash(vec2(k,3.1))*1.3;
+  float xl=(p.x*3.2+uTime*.22)/len; float c=floor(xl); float fx=fract(xl);
+  float ch=hash(vec2(c,k*1.7+.3));
+  float audio=step(k,2.5);
+  float clip=step(.2,ch)*smoothstep(.02,.035,fx)*smoothstep(.98,.965,fx)*smoothstep(.12,.15,fy)*smoothstep(.88,.85,fy);
+  vec3 col=ch<.42?vec3(.3,.14,1.):ch<.62?vec3(.12,.42,1.):ch<.8?vec3(.62,.9,1.):vec3(1.,.42,.08);
+  if(audio>.5) col=ch<.6?vec3(.1,.75,.85):vec3(.55,.95,.9);
+  float thumb=hash(vec2(floor(fx*len*4.),c+k*13.));
+  vec3 body=col*(.35+.4*thumb);
+  float wave=(noise(vec2(xl*len*16.,k*5.))*.75+.15)*(.6+.4*noise(vec2(xl*len*3.,k)));
+  if(audio>.5) body=mix(col*.18,col,step(abs(fy-.5),wave*.33));
+  else body=mix(body,col*1.15,step(.74,fy));
+  vec3 o=vec3(.03,.035,.07)+vec3(.04,.045,.08)*(1.-smoothstep(0.,.03,fy));
+  o=mix(o,body,clip);
+  o=mix(o,vec3(1.),1.-smoothstep(.002,.006,abs(p.x-.8)));
+  return o;
+}
+// A code editor split in two panes: indented lines of syntax-coloured tokens
+// scrolling up, with the odd blinking cursor.
+vec3 codePattern(vec2 p){
+  float pane=step(.8,p.x); vec2 q=vec2(p.x-pane*.8,p.y);
+  float y=q.y*14.-uTime*(.5+.3*pane); float L=floor(y)+pane*97.; float fy=fract(y);
+  float cx=q.x*30.;
+  float x=cx-3.-floor(hash(vec2(L,1.))*4.)*1.5;
+  float n=3.+floor(hash(vec2(L,5.))*6.);
+  float blank=step(hash(vec2(L,2.)),.1); float comment=step(.88,hash(vec2(L,4.)));
+  float start=0.; float tok=0.; float type=0.;
+  for(int i=0;i<8;i++){
+    if(float(i)>=n||start>22.) break;
+    float w=1.+floor(hash(vec2(L,float(i)+10.))*5.);
+    if(x>=start&&x<start+w){ tok=1.; type=hash(vec2(L,float(i)+30.)); }
+    start+=w+1.;
+  }
+  float glyph=tok*(1.-blank)*step(.14,fract(x))*smoothstep(.24,.28,fy)*smoothstep(.76,.72,fy);
+  vec3 col=type<.25?vec3(.6,.38,1.):type<.45?vec3(.3,.64,1.):type<.6?vec3(.7,.95,1.):type<.7?vec3(1.,.5,.15):vec3(.88,.9,.95);
+  if(comment>.5) col=vec3(.4,.45,.58);
+  vec3 o=vec3(.04,.045,.09)+vec3(.05,.06,.13)*step(.92,hash(vec2(L,8.)));
+  o+=vec3(.3,.32,.42)*step(.6,cx)*step(cx,2.)*step(.14,fract(cx))*smoothstep(.34,.38,fy)*smoothstep(.66,.62,fy)*.5*(1.-blank);
+  o=mix(o,col,glyph);
+  float cur=step(.9,hash(vec2(L,7.)))*(1.-blank)*step(start-1.,x)*step(x,start)*step(.2,fy)*step(fy,.8)*step(.5,fract(uTime*1.6));
+  o=mix(o,vec3(.9,.95,1.),cur);
+  o+=vec3(.05,.06,.1)*(1.-smoothstep(0.,.004,abs(p.x-.8)));
+  return o;
+}
+// The reference's three looks (electric-blue channel noise, black/white
+// contour stripes, violet/ice/orange glow) plus the timeline and the code.
+// The picture lives in wall space, so every tile shows its part of one image.
+vec3 panelPattern(float mode,vec2 p){
+  if(mode>2.5) return mode<3.5?timelinePattern(p):codePattern(p);
+  float t=uTime*.06;
+  vec2 q=p*2.4;
   vec2 r=q+vec2(noise(q+vec2(t,0.)),noise(q*1.3-vec2(0.,t)+3.1))*1.5;
-  float nx=noise(r*1.7+t), ny=noise(r*2.1-t*.8+5.), nz=noise(r*2.6+t*.6+9.), nw=noise(r*.8+t*.5+13.);
-  if(mode<.5){
-    vec3 c=vec3(.04,.06,.32)*step(.46,nx)+vec3(.36,.3,.7)*step(.64,ny)+vec3(.1,.16,.62)*step(.58,nz)*.6;
-    return c;
-  }
-  if(mode<1.5){
-    float s=step(.5,fract(nw*9.+nx*.4));
-    return mix(vec3(.012,.012,.016),vec3(.66,.68,.72),s);
-  }
-  vec3 c=mix(vec3(.34,.12,.66),vec3(.04,.64,.74),smoothstep(.35,.7,nx));
-  c=mix(c,vec3(.95,.44,.12),smoothstep(.6,.86,ny)*.85);
-  return c*mix(.5,1.,nz);
+  float ny0=noise(r*2.1-t*.8+5.);
+  float nx=st(noise(r*1.7+t)), ny=st(ny0), nz=st(noise(r*2.6+t*.6+9.)), nw=noise(r*.8+t*.5+13.);
+  // Channels share one field, so it runs navy, electric blue, ice white.
+  if(mode<.5){ float b=nz*.85+nx*.15; return vec3(smoothstep(.55,1.,b),smoothstep(.25,1.,b*.92+ny*.08),smoothstep(0.,1.,b))*vec3(.3,.4,.6)*2.; }
+  if(mode<1.5) return vec3(step(.5,fract(nw*9.)))*.85;
+  vec3 c=vec3(.207,.059,.992);
+  c=mix(c,vec3(.698,.929,1.),smoothstep(.5,.9,st(nw)));
+  c=mix(c,vec3(.992,.373,.047),smoothstep(.55,.95,ny0));
+  return c;
 }
 float plusMark(vec2 cell){ vec2 d=abs(fract(cell+.5)-.5)/max(fwidth(cell),vec2(1e-4)); return max(step(d.x,.6)*step(d.y,9.),step(d.y,.6)*step(d.x,9.)); }
-vec3 hueRotate(vec3 c,float a){ const vec3 k=vec3(.57735); float ca=cos(a); return c*ca+cross(k,c)*sin(a)+k*dot(k,c)*(1.-ca); }
 vec3 coverMedia(vec2 uv){
   vec2 m=uv-.5;
   if(uPortalAspect>uAspect){ m.x*=uAspect/uPortalAspect; } else { m.y*=uPortalAspect/uAspect; }
@@ -48,30 +96,50 @@ wall.y-=uScroll;
 // panels shrink away around each swap.
 float layoutT=uTime/4.; float panelLayout=floor(layoutT); float layoutPhase=fract(layoutT);
 vec2 base=wall*vec2(7.,4.); vec2 id=floor(base); vec2 f=fract(base); float size=1.;
-for(int i=0;i<3;i++){
+// Mostly two sizes, as in the reference, with the odd quarter tile.
+for(int i=0;i<2;i++){
   float h=hash(id*1.37+vec2(panelLayout*3.1,float(i)*7.7));
-  if(h<(i==0?.3:.5)) break;
+  if(h<(i==0?.45:.8)) break;
   vec2 q=step(.5,f); id=id*2.+q; f=fract(f*2.); size*=.5;
 }
 float rnd=hash(id+panelLayout*.37);
+vec2 tileC=(id+.5)*size/vec2(7.,4.);
+// The whole wall changes look at once: a hard cut, a scatter where each tile
+// flips on its own beat, or a sweep where tiles turn over left to right.
+float sel=step(.5,uPatSel); float flip=1.;
+if(uPatType>.5&&uPatType<1.5) sel=step(rnd,uPatSel);
+if(uPatType>1.5){ float fd=smoothstep(0.,1.,clamp(uPatSel*2.-tileC.x,0.,1.)); fd=fd>=1.?1.:1.-pow(2.,-10.*fd); sel=step(.5,fd); flip=abs(cos(fd*3.14159)); }
+float mode=sel>.5?uPatNext:uPatCur;
+vec2 ft=vec2((f.x-.5)/max(flip,.001)+.5,f.y);
 float hide=1.-smoothstep(0.,.07,layoutPhase)*smoothstep(1.,.93,layoutPhase);
-float gap=.016/size+hide*.5*(.6+.4*rnd);
-vec2 e=min(f,1.-f); float edgeDist=min(e.x,e.y);
-float inPanel=smoothstep(gap,gap+.006/size,edgeDist);
-// Asynchronous pattern changes, UV jumps and blackouts per panel.
-float cycle=uTime/(2.+rnd*4.)+rnd*10.;
-float mode=floor(hash(id+floor(cycle))*3.); float nextMode=floor(hash(id+floor(cycle)+1.)*3.);
-float fade=smoothstep(.82,1.,fract(cycle));
-float jt=uTime*(.2+rnd*.6)+rnd*7.; float jEpoch=floor(jt); float jPhase=fract(jt);
-vec2 jump=(vec2(hash(id+jEpoch*1.3),hash(id-jEpoch*2.1))-.5)*.5*step(.55,hash(id+jEpoch+4.))*(1.-smoothstep(0.,.3,jPhase));
-vec2 pUv=wall*vec2(1.6,1.)+jump*size;
-vec3 pat=panelPattern(mode,pUv,rnd);
-if(fade>.001) pat=mix(pat,panelPattern(nextMode,pUv,rnd),fade);
-float blackout=1.-step(.84,hash(id+floor(uTime*(.8+rnd))))*.92;
-// Each panel's palette drifts around the colour wheel on its own clock.
-pat=hueRotate(pat,sin(uTime*.13+rnd*6.283)*.6);
-pat*=(.55+.5*rnd)*blackout*.56; pat=mix(pat,pat*vec3(.75,.9,1.2),.2);
-pat+=pat*pow(max(0.,sin(uTime*.9+rnd*30.)),12.)*.8;
+float gap=.016/size+hide*.16*(.6+.4*rnd);
+vec2 e=min(ft,1.-ft); float edgeDist=min(e.x,e.y);
+float inPanel=smoothstep(gap,gap+.006/size,edgeDist)*step(0.,ft.x)*step(ft.x,1.);
+// Glitches: some tiles black out, others show a shifted part of the picture.
+float bh=floor(uBlackHash*5.)/5.; float black=step(hash(id+bh+.17),uBlackOut);
+float sh=floor(uShiftHash*5.)/5.;
+vec2 jump=(vec2(hash(id+sh),hash(id+sh+10.))-.5)*uShiftPower*step(hash(id+sh+3.3),uShift);
+vec2 pUv=wall*vec2(1.6,1.)+jump;
+vec3 pat=panelPattern(mode,pUv);
+// The wordmark and marks run over the tiles, faint, like the reference's logo.
+float glyph=0.;
+if(uGlyphMode<.5){
+  float gy=wall.y*7.; float row=floor(gy); float gv=(fract(gy)-.5)*1.4+.5;
+  glyph=texture2D(uMarquee,vec2(wall.x*1.4+sin(row*3.+uTime)*.1,gv)).a*step(0.,gv)*step(gv,1.);
+} else if(uGlyphMode<1.5){
+  float gy=(wall.y-.5)*4.5+.5; float row=floor(gy); float gv=(fract(gy)-.5)*1.15+.5;
+  glyph=texture2D(uMarquee,vec2(wall.x*.9+uTime*.05*sign(row-.5),gv)).a*step(0.,gv)*step(gv,1.)*step(.5,abs(row));
+} else {
+  vec2 g=ft; g.y=fract(g.y-uTime*.5*hash(id+5.)); g=(g-.5)*(1.3+hash(id+7.)*5.)+.5;
+  float gi=floor(hash(id+9.)*4.);
+  glyph=texture2D(uGlyphs,vec2((gi+clamp(g.x,0.,1.))/4.,clamp(g.y,0.,1.))).a*step(0.,g.x)*step(g.x,1.)*step(0.,g.y)*step(g.y,1.);
+}
+pat+=glyph*.2;
+pat*=1.-black*.94;
+// Dark at the sides, saturated and bright in the middle.
+float vd=length((uv-.5)*vec2(min(uAspect,1.5),1.)); float vig=smoothstep(.85,.04,vd);
+float luma=dot(pat,vec3(.299,.587,.114)); pat=max(mix(vec3(luma),pat,mix(.35,1.2,vig)),0.);
+pat*=vig*sqrt(vig)*(.8+.25*rnd)*.72;
 // While the work track is up, the active project plays across the wall,
 // softly blurred and split by the panels like a video wall.
 if(uWorkMedia>.001){
@@ -80,14 +148,13 @@ if(uWorkMedia>.001){
   media=mix(media,sRGBTransferEOTF(vec4(media,1.)).rgb,uPortalIsVideo);
   pat=mix(pat,media*(.45+.35*rnd),uWorkMedia*.85);
 }
-// Fine dot texture and fluid-lit panel rims.
-vec2 dotP=fract(gl_FragCoord.xy*.23); float dots=step(.35,dotP.x)*step(.35,dotP.y); pat*=.8+.2*dots;
+// LED dot screen, curved with the wall, and fluid-lit panel rims.
+vec2 dg=wall*vec2(1.6,1.)*210.; float dotw=smoothstep(.5,.2,length(fract(dg)-.5));
+dotw=mix(dotw,.6,smoothstep(.3,.7,fwidth(dg.x))); pat*=mix(dotw,1.,.6)*1.1;
 float rim=(1.-smoothstep(gap,gap+.035/size,edgeDist))*inPanel;
 pat+=vec3(.12,.22,.55)*rim*min(length(v)*2.5,1.)*.6;
 pat*=1.-abs(uWorks)*.55;
 vec3 col=mix(vec3(.004,.005,.009),pat,inPanel);
-// Broad studio cast over the wall: blue from the right, teal from the left.
-col+=(vec3(.0,.025,.15)*smoothstep(.2,1.05,uv.x)+vec3(.0,.055,.035)*smoothstep(.8,-.05,uv.x))*(1.-uServices)*(1.-uLight);
 // WORKS is lettered across the wall and travels down it with scroll.
 float worksAmount=abs(uWorks);
 if(worksAmount>.001){
