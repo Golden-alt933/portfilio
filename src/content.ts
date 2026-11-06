@@ -54,7 +54,7 @@ export const profile = {
  * the form points visitors to the email link instead.
  */
 export const contactEndpoint = "https://api.web3forms.com/submit";
-export const contactAccessKey = "";
+export const contactAccessKey = "897cd232-79f7-4d4e-85b1-83a1f30c671c";
 
 /** Topics a visitor can pick on the contact form. */
 export const contactTopics = [
