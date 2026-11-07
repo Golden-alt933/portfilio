@@ -47,13 +47,36 @@ function QuaternionPanel() {
     if (!open) return;
     let frame = 0;
     let last = 0;
+    let drawnKey = "";
+    let shownKey = "";
+    // Track the canvas width with an observer: reading clientWidth each frame
+    // forced a synchronous layout right after the scroll code wrote styles.
+    let size = canvas.current?.clientWidth ?? 0;
+    const sizeObserver = new ResizeObserver(([entry]) => {
+      size = Math.round(entry.contentRect.width);
+    });
+    if (canvas.current) sizeObserver.observe(canvas.current);
     const draw = (now: number) => {
       frame = requestAnimationFrame(draw);
+      if (document.hidden) return;
       const element = canvas.current;
       const ctx = element?.getContext("2d");
       if (!element || !ctx) return;
-      const size = element.clientWidth;
       const dpr = Math.min(2, window.devicePixelRatio || 1);
+      // Skip the redraw unless the letter's orientation or the canvas size
+      // actually changed; the readout re-renders only when its text changes.
+      const key = `${sceneTweaks.quaternion.map((v) => v.toFixed(4)).join()}|${size}|${dpr}`;
+      const q = sceneTweaks.quaternion;
+      if (now - last > 120) {
+        const readout = q.map(fmt).join();
+        if (readout !== shownKey) {
+          last = now;
+          shownKey = readout;
+          setQuat([...q]);
+        }
+      }
+      if (key === drawnKey) return;
+      drawnKey = key;
       if (element.width !== size * dpr) {
         element.width = size * dpr;
         element.height = size * dpr;
@@ -69,7 +92,6 @@ function QuaternionPanel() {
         ctx.arc(c, c, r, 0, Math.PI * 2);
         ctx.stroke();
       }
-      const q = sceneTweaks.quaternion;
       const ends = AXES.flatMap((axis) => {
         const p = rotate(q, axis.v);
         return [
@@ -104,13 +126,12 @@ function QuaternionPanel() {
           ctx.fillText(end.label, x, y + 0.5);
         }
       }
-      if (now - last > 120) {
-        last = now;
-        setQuat([...q]);
-      }
     };
     frame = requestAnimationFrame(draw);
-    return () => cancelAnimationFrame(frame);
+    return () => {
+      cancelAnimationFrame(frame);
+      sizeObserver.disconnect();
+    };
   }, [open]);
 
   const onDown = (event: PointerEvent<HTMLCanvasElement>) => {

@@ -394,6 +394,9 @@ export class FluidField {
 
   resize(width: number, height: number) {
     const [w, h] = this.dimensions(width, height);
+    // Adaptive-quality steps call resize without changing the viewport; the
+    // field's size is unchanged then, so keep the ink instead of wiping it.
+    if (this.velocity.width === w && this.velocity.height === h) return;
     this.resolution.set(1 / w, 1 / h);
     const targets = [
       this.velocity,

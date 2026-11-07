@@ -209,7 +209,14 @@ export default function ImmersiveHome() {
       if (!cache) written.set(target, (cache = new Map()));
       return cache;
     };
-    const setVar = (style: CSSStyleDeclaration, name: string, value: string) => {
+    const setVar = (style: CSSStyleDeclaration, name: string, raw: string) => {
+      // Round numbers to 3 decimals: Lenis eases forever in tiny steps, and
+      // full-precision values defeat the cache below, so every frame would
+      // still restyle the whole story subtree for invisible changes.
+      const numeric = raw === "" ? NaN : Number(raw);
+      const value = Number.isFinite(numeric)
+        ? String(Math.round(numeric * 1000) / 1000)
+        : raw;
       const cache = cacheFor(style);
       if (cache.get(name) === value) return;
       cache.set(name, value);
@@ -518,7 +525,9 @@ export default function ImmersiveHome() {
       );
       setData(document.body, "sceneChapter", chapter);
       setVar(document.body.style, "--scene-light-mix", String(lightMix));
-      paletteTimeline?.progress(lightMix);
+      const paletteProgress = Math.round(lightMix * 1000) / 1000;
+      if (paletteTimeline && paletteTimeline.progress() !== paletteProgress)
+        paletteTimeline.progress(paletteProgress);
     };
     const refresh = () => {
       measure();

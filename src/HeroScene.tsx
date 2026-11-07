@@ -221,7 +221,10 @@ export default function HeroScene({
     let renderer: THREE.WebGLRenderer;
     try {
       renderer = new THREE.WebGLRenderer({
-        antialias: true,
+        // The screen only ever receives one fullscreen composite quad (the
+        // 3D scene renders into compositeTarget), so MSAA here would cost
+        // fill-rate and memory without smoothing a single edge.
+        antialias: false,
         alpha: true,
         powerPreference: "high-performance",
         preserveDrawingBuffer: false,
@@ -249,8 +252,9 @@ export default function HeroScene({
     // Render resolution: capped below the screen's density, then scaled by an
     // adaptive quality factor that drops when frames run slow.
     let quality = 1;
+    const MIN_QUALITY = 0.6;
     const pixelRatio = (w: number) =>
-      Math.max(0.85, Math.min(window.devicePixelRatio || 1, w < 700 ? 1.1 : 1.25) * quality);
+      Math.max(0.6, Math.min(window.devicePixelRatio || 1, w < 700 ? 1.1 : 1.25) * quality);
     renderer.setPixelRatio(pixelRatio(window.innerWidth));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -750,6 +754,10 @@ export default function HeroScene({
       downTarget: null as THREE.Object3D | null,
     };
     const raycaster = new THREE.Raycaster();
+    // The host is fixed to the viewport, so its rect only changes on resize.
+    // Cached there: reading it per pointer event forced a layout on every
+    // mouse move (hundreds per second on high-polling mice).
+    let hostRect = holder.getBoundingClientRect();
     const pointerMove = (event: PointerEvent) => {
       if (
         !activeRef.current ||
@@ -757,7 +765,7 @@ export default function HeroScene({
         reducedRef.current
       )
         return;
-      const rect = holder!.getBoundingClientRect();
+      const rect = hostRect;
       const x = THREE.MathUtils.clamp(
         (event.clientX - rect.left) / rect.width,
         0,
@@ -784,7 +792,7 @@ export default function HeroScene({
       );
     const panelHit = (event: PointerEvent) => {
       if (!activeRef.current || interactiveTarget(event.target)) return null;
-      const rect = holder!.getBoundingClientRect();
+      const rect = hostRect;
       if (
         event.clientX < rect.left ||
         event.clientX > rect.right ||
@@ -864,6 +872,7 @@ export default function HeroScene({
     const choreography = new SceneChoreography();
     const resize = () => {
       const rect = holder!.getBoundingClientRect();
+      hostRect = rect;
       width = Math.max(1, rect.width);
       height = Math.max(1, rect.height);
       renderer.setPixelRatio(pixelRatio(width));
@@ -945,10 +954,11 @@ export default function HeroScene({
       if (rawDt > 0 && rawDt < 0.25) {
         perf.time += rawDt;
         perf.frames++;
-        if (perf.time >= 1.5) {
+        if (perf.time >= 1) {
           const average = perf.time / perf.frames;
-          if (average > 1 / 40 && quality > 0.8) {
-            quality = Math.max(0.8, quality - 0.1);
+          if (average > 1 / 45 && quality > MIN_QUALITY) {
+            // Very slow windows drop two steps at once to recover quickly.
+            quality = Math.max(MIN_QUALITY, quality - (average > 1 / 30 ? 0.2 : 0.1));
             perf.good = 0;
             resize();
           } else if (average < 1 / 57 && quality < 1) {
@@ -1218,7 +1228,6 @@ export default function HeroScene({
         if (rect && rect.height > 4) {
           // Cast the slot centre through the live camera onto the letter's
           // z = 0 plane, so the dock holds even while the camera settles.
-          const hostRect = holder!.getBoundingClientRect();
           const ndcX = ((rect.left + rect.width / 2 - hostRect.left) / width) * 2 - 1;
           const ndcY = 1 - ((rect.top + rect.height / 2 - hostRect.top) / height) * 2;
           camera.updateMatrixWorld();
