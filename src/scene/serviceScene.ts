@@ -164,6 +164,17 @@ export class ServiceScene {
     });
   }
 
+  /** Compiles every program here, hidden thumbs included, before first use. */
+  warmUp(renderer: THREE.WebGLRenderer) {
+    const previous = renderer.getRenderTarget();
+    renderer.setRenderTarget(this.target);
+    try {
+      renderer.compile(this.scene, this.camera);
+    } finally {
+      renderer.setRenderTarget(previous);
+    }
+  }
+
   render(renderer: THREE.WebGLRenderer) {
     renderer.setRenderTarget(this.target);
     renderer.clear(true, true, true);

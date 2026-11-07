@@ -254,7 +254,7 @@ export default function HeroScene({
     let quality = 1;
     const MIN_QUALITY = 0.6;
     const pixelRatio = (w: number) =>
-      Math.max(0.6, Math.min(window.devicePixelRatio || 1, w < 700 ? 1.1 : 1.25) * quality);
+      Math.max(0.6, Math.min(window.devicePixelRatio || 1, w < 700 ? 1.1 : 1.5) * quality);
     renderer.setPixelRatio(pixelRatio(window.innerWidth));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -639,8 +639,15 @@ export default function HeroScene({
             if (material) {
               material.uniforms.uMap.value = loaded;
               material.uniforms.uMapAspect.value = loaded.image.width / loaded.image.height;
-              material.needsUpdate = true;
             }
+            // Decode off the main thread, then upload now rather than on the
+            // first frame the works section shows this poster.
+            const image = loaded.image as HTMLImageElement;
+            void (image.decode?.() ?? Promise.resolve())
+              .catch(() => undefined)
+              .then(() => {
+                if (!disposed) renderer.initTexture(loaded);
+              });
           },
           undefined,
           () => {
@@ -870,6 +877,56 @@ export default function HeroScene({
     const zoomTarget = new THREE.Vector3();
     const baseTarget = new THREE.Vector3();
     const choreography = new SceneChoreography();
+    // Warm-up, as alche.studio does with its ShaderPrecompiler: compile every
+    // program (hidden objects included) and upload every texture while the
+    // loader is still up. Otherwise WebGL compiles a section's shaders and
+    // uploads its images the first time it scrolls into view, which freezes
+    // the page for 50-300 ms mid-scroll. Each pass compiles against its own
+    // target, since three's program variant depends on it (tone mapping).
+    let warmedUp = false;
+    const compileFor = (
+      root: THREE.Object3D,
+      cam: THREE.Camera,
+      target: THREE.WebGLRenderTarget | null,
+    ) => {
+      // three's compile() covers hidden objects too. With the browser's
+      // parallel-compile extension (Chrome has it) this queues the work on
+      // the GPU process instead of blocking here.
+      const previous = renderer.getRenderTarget();
+      renderer.setRenderTarget(target);
+      try {
+        renderer.compile(root, cam);
+      } finally {
+        renderer.setRenderTarget(previous);
+      }
+    };
+    try {
+      compileFor(bgScene, bgCamera, backgroundTarget);
+      compileFor(copyScene, bgCamera, softTarget);
+      compileFor(scene, camera, compositeTarget);
+      compileFor(compositeScene, compositeCamera, null);
+      serviceScene.warmUp(renderer);
+      for (const texture of [
+        ...posters,
+        glyphTexture,
+        marqueeTexture,
+        createTexture,
+        worksTexture,
+        contactTexture,
+      ])
+        renderer.initTexture(texture);
+    } catch {
+      /* Warm-up is best effort; real failures surface on first render. */
+    }
+    // Give the GPU process a few frames to finish linking before the loader
+    // reveals the page.
+    let warmFrames = 0;
+    const waitWarm = () => {
+      if (disposed) return;
+      if (++warmFrames >= 3) warmedUp = true;
+      else requestAnimationFrame(waitWarm);
+    };
+    requestAnimationFrame(waitWarm);
     const resize = () => {
       const rect = holder!.getBoundingClientRect();
       hostRect = rect;
@@ -889,6 +946,14 @@ export default function HeroScene({
         Math.max(1, Math.floor(width * renderer.getPixelRatio())),
         Math.max(1, Math.floor(height * renderer.getPixelRatio())),
       );
+      // 4x MSAA smooths the glass R's silhouette (the screen canvas has no
+      // antialiasing; this target is where the 3D scene is drawn). Dropped
+      // as soon as adaptive quality has to step down.
+      const samples = width >= 700 && quality >= 0.95 ? 4 : 0;
+      if (compositeTarget.samples !== samples) {
+        compositeTarget.samples = samples;
+        compositeTarget.dispose();
+      }
       fluid.resize(width, height);
       serviceScene.setSize(width, height, renderer.getPixelRatio());
       fluid.setEnabled(width > 700);
@@ -1410,7 +1475,7 @@ export default function HeroScene({
       renderer.setRenderTarget(null);
       renderer.clear(true, true, true);
       renderer.render(compositeScene, compositeCamera);
-      if (firstFrame && !shaderFailed) {
+      if (firstFrame && warmedUp && !shaderFailed) {
         firstFrame = false;
         holder!.classList.add("scene-ready");
         holder!.dataset.rendererStatus = "ready";
